@@ -10,7 +10,7 @@ The code will calculate every pass over the list of ground stations defined furt
 Second: In Blender, copy and paste the script in to the script window. Alternatively I have uploaded the blender file I'm using.
 I've tried to make sure all the relevant settings are scripted but some may remain to be changed. Make sure the output file type is openEXR and that your save directory is correct.
 
-You will need to put in a CAD model and define a material. Those are on the alconcel group meeting onedrive .obj files (like starlink) have an accompanying .mtl file, that as long as it is in the same directory will apply the material in Blender.
+You will need to put in a CAD model and define a material. Those are on the alconcel group meeting onedrive - too big to put here. .obj files (like starlink) have an accompanying .mtl file, that as long as it is in the same directory will apply the material in Blender.
 For .stl and others, you will need to define your own material in the shader editor.
 
 Once the script runs without errors and its looking nice, go to render> render animation.
