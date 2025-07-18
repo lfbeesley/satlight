@@ -96,7 +96,7 @@ camera.data.type = 'PERSP'
 
 # ten degree FoV - should be enough to
 # make sure its only in 1 pixel - check based on target size.
-bpy.context.object.data.angle = 0.174533
+sun.data.angle = 0.174533
 
 #smallest possible odd number resolution
 bpy.context.scene.render.resolution_x = 5
