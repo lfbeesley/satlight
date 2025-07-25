@@ -36,16 +36,20 @@ with open(json_path, "r") as f:
 contact = contacts[0] # make sure the contact being used is the same as the one in Blender
 
 ranges=contact['range_km']
+sunlit=contact['sunlit']
+print(sunlit)
 zenith_angles_rad=np.pi/2-np.radians(contact['elevation_deg'])
 time_strings = contact['timearr']
 times = [datetime.fromisoformat(t) for t in time_strings]
 
-directory_renders = os.path.join(os.getcwd(), "renders")
+directory_renders = os.path.join(os.getcwd(), "renders_RB")
 
 exr_files = sorted([f for f in os.listdir(directory_renders ) if f.lower().endswith('.exr')])
 
 # atmospheric extinction coefficient
 ext_coeff=0.1 # probably quite hard to model accurately in practice
+
+#try different pixel sizes and scaling with the distance!
 
 magnitudes_final=[]
 
@@ -53,15 +57,21 @@ for i, file in enumerate(exr_files):
 
     path = os.path.join(directory_renders, file)
     light_flux = calculate_light_flux_exr(path)
+    print(light_flux)
+    # if it is not illuminated due to eclipse we get rid of it here
+    final_flux=light_flux*sunlit[i]
 
     # calculate the 'magnitude'
-    mag_inst = -2.5*np.log10(light_flux)
-    mag_range = -5*np.log10(ranges[i]/1000) #normalised for range
-    mag_atmos = ext_coeff*1/np.cos(zenith_angles_rad[i])
+    if final_flux!=0:
+        mag_inst = -2.5*np.log10(final_flux)
+        mag_range = -5*np.log10(ranges[i]/1000) #normalised for range
+        mag_atmos = ext_coeff*1/np.cos(zenith_angles_rad[i])
 
-    magnitude= mag_inst + mag_range + mag_atmos
+        magnitude = mag_inst + mag_range + mag_atmos
 
-    magnitudes_final.append(magnitude)
+        magnitudes_final.append(magnitude)
+    else:
+        magnitudes_final.append(None)
 
 
 plt.figure(figsize=(10, 5))
