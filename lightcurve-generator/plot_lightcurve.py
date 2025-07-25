@@ -37,7 +37,7 @@ contact = contacts[0] # make sure the contact being used is the same as the one 
 
 ranges=contact['range_km']
 sunlit=contact['sunlit']
-print(len(sunlit))
+
 zenith_angles_rad=np.pi/2-np.radians(contact['elevation_deg'])
 time_strings = contact['timearr']
 times = [datetime.fromisoformat(t) for t in time_strings]
@@ -57,14 +57,14 @@ for i, file in enumerate(exr_files):
 
     path = os.path.join(directory_renders, file)
     light_flux = calculate_light_flux_exr(path)
-    print(light_flux)
+
     # if it is not illuminated due to eclipse we get rid of it here
     final_flux=light_flux*sunlit[i]
 
     # calculate the 'magnitude'
     if final_flux!=0:
         mag_inst = -2.5*np.log10(final_flux)
-        mag_range = 5*np.log10(ranges[i]/1000) #normalised for range
+        mag_range = -5*np.log10(ranges[i]/1000) #normalised for range
         mag_atmos = ext_coeff*1/np.cos(zenith_angles_rad[i])
 
         magnitude = mag_inst + mag_range + mag_atmos
