@@ -1,0 +1,145 @@
+# Blender MTL File: 'SpaceXStarlinkSatelliteHighRes(Packed).blend'
+# Material Count: 13
+
+newmtl Black
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Brushed_Metal
+Ns 143.999983
+Ka 1.000000 1.000000 1.000000
+Kd 0.603827 0.603827 0.603827
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Normal.jpg
+map_Kd E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Color.jpg
+map_Ns E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Roughness.jpg
+
+newmtl Brushed_Metal.002
+Ns 143.999983
+Ka 1.000000 1.000000 1.000000
+Kd 0.603827 0.603827 0.603827
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Metal009\\Metal009_1K_Normal.jpg
+map_Ns E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Metal009\\Metal009_1K_Roughness.jpg
+
+newmtl Brushed_Metal_2
+Ns 143.999983
+Ka 1.000000 1.000000 1.000000
+Kd 0.603827 0.603827 0.603827
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Normal.jpg
+map_Kd E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Color_Lighter.jpg
+map_Ns E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Roughness.jpg
+
+newmtl Engine_Emission
+Ns 323.999994
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.122139 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl Engine_Inner
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Holder_Material
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.632451 0.100612 0.005811
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Normal.jpg
+map_Ns E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\Metal-2K\\Metal009_2K_Roughness.jpg
+
+newmtl Painted
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.083532 0.083532 0.083532
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Painted_Solar_Panel_Back
+Ns 56.250000
+Ka 1.000000 1.000000 1.000000
+Kd 0.050876 0.050876 0.050876
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Pink
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 0.442247 0.911610
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Solar_Panel
+Ns 506.250000
+Ka 1.000000 1.000000 1.000000
+Kd 0.070683 0.234293 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Bump E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\SolarPanels-1K\\SolarPanels-Normal-1K.jpg
+map_Kd E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\SolarPanels-1K\\SolarPanels-Color-1K.jpg
+map_Ns E:\\Creative Projects\\6mS8YSAj9n-H9VFu - SpaceX Starlink Satellite\\Textures\\SolarPanels-1K\\SolarPanels-Roughness-1K.jpg
+
+newmtl White
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Wire
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
