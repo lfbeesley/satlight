@@ -1,0 +1,962 @@
+################################################################################
+#            COPYRIGHT 1995 Analytical Graphics, Inc.                          #
+#            This data is intended for use with Satellite Tool Kit (TM)        #
+#            products only.  Any other use is expressly forbidden.             #
+# DOM 03/17/1998 rwb
+################################################################################
+#DOM 19 Mar '98_sc
+#Manufacturer/Contractor 
+#Name:
+#Class:
+#Beam: m 
+#Length: m 
+#Height: m 
+#Articulations:(Yes)
+#All units in meters
+# Scaled at bottom of file- 21 Feb 00
+
+# updated May 1999 to add solar array functionality - RAHall
+SolarPanelGroup hs702 14.0
+Component Platform
+	Extrusion
+		FaceColor gold4
+		Length 8.925
+		NumVerts 4
+		Data
+			0.0 3.5 -3.835
+			0.0 3.5 3.835
+			0.0 -3.5 3.835
+			0.0 -3.5 -3.835
+	EndExtrusion
+EndComponent
+Component PlatformFt
+	Polygon
+		FaceColor gray30
+		NumVerts 4
+		Data
+			0.0 3.5 -3.835
+			0.0 3.5 3.835
+			0.0 -3.5 3.835
+			0.0 -3.5 -3.835
+	EndPolygon
+EndComponent
+Component PlatformBk
+	Polygon
+		Translate 8.925 0.0 0.0
+		FaceColor gray30
+		NumVerts 4
+		Data
+			0.0 3.5 -3.835
+			0.0 3.5 3.835
+			0.0 -3.5 3.835
+			0.0 -3.5 -3.835
+	EndPolygon
+EndComponent
+Component PlatformStr
+	Refer
+		Component Platform
+	EndRefer
+	Refer
+		Component PlatformFt
+	EndRefer
+	Refer
+		Component PlatformBk
+	EndRefer
+EndComponent
+
+Component AntArm
+	Extrusion
+		FaceColor gold4
+		Length 0.2
+		NumVerts 7
+		Data
+			0.0 0.12 0.0
+			0.0 1.75 2.0
+			0.0 3.75 5.25
+			0.0 3.9 5.9
+			0.0 3.8 5.9
+			0.0 1.0 1.35
+			0.0 0.0 0.15
+	EndExtrusion
+EndComponent
+Component AntArmFt
+	Polygon
+		FaceColor gold4
+		NumVerts 7
+		Data
+			0.0 0.12 0.0
+			0.0 1.75 2.0
+			0.0 3.75 5.25
+			0.0 3.9 5.9
+			0.0 3.8 5.9
+			0.0 1.0 1.35
+			0.0 0.0 0.15
+	EndPolygon
+EndComponent
+Component AntArmBk
+	Polygon
+		Translate 0.2 0.0 0.0
+		FaceColor gold4
+		NumVerts 7
+		Data
+			0.0 0.12 0.0
+			0.0 1.75 2.0
+			0.0 3.75 5.25
+			0.0 3.9 5.9
+			0.0 3.8 5.9
+			0.0 1.0 1.35
+			0.0 0.0 0.15
+	EndPolygon
+EndComponent
+Component AntArmStr
+	Refer
+		Component AntArm
+	EndRefer
+	Refer
+		Component AntArmFt
+	EndRefer
+	Refer
+		Component AntArmBk
+	EndRefer
+EndComponent
+Component AntArmAssm
+	Refer
+		Translate -1.0 0.0 0.0
+		Component AntArmStr
+	EndRefer
+	Refer
+		Translate 1.0 0.0 0.0
+		Component AntArmStr
+	EndRefer
+EndComponent
+Component AntSprt
+	Extrusion
+		FaceColor gold4
+		Length 2.4
+		NumVerts 4
+		Data
+			0.0 0.0 -0.4
+			0.0 1.0 -0.2
+			0.0 1.0 0.2
+			0.0 0.0 0.4
+	EndExtrusion
+EndComponent
+Component AntSprtFt
+	Polygon
+		FaceColor gold
+		NumVerts 4
+		Data
+			0.0 0.0 -0.4
+			0.0 1.0 -0.2
+			0.0 1.0 0.2
+			0.0 0.0 0.4
+	EndPolygon
+EndComponent
+Component AntSprtBk
+	Polygon
+		Translate 2.4 0.0 0.0
+		FaceColor gold
+		NumVerts 4
+		Data
+			0.0 0.0 -0.4
+			0.0 1.0 -0.2
+			0.0 1.0 0.2
+			0.0 0.0 0.4
+	EndPolygon
+EndComponent
+Component AntSprtStr
+	Refer
+		Component AntSprt
+	EndRefer
+	Refer
+		Component AntSprtFt
+	EndRefer
+	Refer
+		Component AntSprtBk
+	EndRefer
+EndComponent
+Component SideWedge
+	Extrusion
+		FaceColor gold4
+		Length 8.0
+		NumVerts 4
+		Data
+			0.0 1.7 0.0
+			0.0 0.2 2.5
+			0.0 0.0 2.5
+			0.0 0.0 0.0
+	EndExtrusion
+EndComponent
+Component SideWedgeFt
+	Polygon
+		FaceColor gold4
+		NumVerts 4
+		Data
+			0.0 1.7 0.0
+			0.0 0.2 2.5
+			0.0 0.0 2.5
+			0.0 0.0 0.0
+	EndPolygon
+EndComponent
+Component SideWedgeBk
+	Polygon
+		Translate 8.0 0.0 0.0
+		FaceColor gold4
+		NumVerts 4
+		Data
+			0.0 1.7 0.0
+			0.0 0.2 2.5
+			0.0 0.0 2.5
+			0.0 0.0 0.0
+	EndPolygon
+EndComponent
+Component SideWedgeStr
+	Refer
+		Component SideWedge
+	EndRefer
+	Refer
+		Component SideWedgeFt
+	EndRefer
+	Refer
+		Component SideWedgeBk
+	EndRefer
+EndComponent
+Component SideFlap
+	Extrusion
+		FaceColor red
+		Length 0.1
+		NumVerts 6
+		Data
+			0.0 3.0 0.0
+			0.0 3.0 2.0
+			0.0 2.5 2.5
+			0.0 -2.5 2.5
+			0.0 -3.0 2.0
+			0.0 -3.0 0.0
+	EndExtrusion
+EndComponent
+Component SideFlapFt
+	Polygon
+		FaceColor gold3
+		NumVerts 6
+		Data
+			0.0 3.0 0.0
+			0.0 3.0 2.0
+			0.0 2.5 2.5
+			0.0 -2.5 2.5
+			0.0 -3.0 2.0
+			0.0 -3.0 0.0
+	EndPolygon
+EndComponent
+Component SideFlapBk
+	Polygon
+		Translate 0.1 0.0 0.0
+		FaceColor gold3
+		NumVerts 6
+		Data
+			0.0 3.0 0.0
+			0.0 3.0 2.0
+			0.0 2.5 2.5
+			0.0 -2.5 2.5
+			0.0 -3.0 2.0
+			0.0 -3.0 0.0
+	EndPolygon
+EndComponent
+Component SideFlapStr
+	Refer
+		Component SideFlap
+	EndRefer
+	Refer
+		Component SideFlapFt
+	EndRefer
+	Refer
+		Component SideFlapBk
+	EndRefer
+EndComponent
+Component PlatformTop
+	Extrusion
+		FaceColor gold4
+		Length 1.0
+		NumVerts 16
+		Data
+			0.0 0.6 -2.75
+			0.0 1.25 -3.15
+			0.0 1.5 -3.835
+			0.0 3.5 -3.835
+			0.0 3.5 3.835
+			0.0 1.5 3.835
+			0.0 1.25 3.15
+			0.0 0.6 2.75
+			0.0 -0.6 2.75
+			0.0 -1.25 3.15
+			0.0 -1.5 3.835
+			0.0 -3.5 3.835
+			0.0 -3.5 -3.835
+			0.0 -1.5 -3.835
+			0.0 -1.25 -3.15
+			0.0 -0.6 -2.75
+	EndExtrusion
+EndComponent
+Component PlatformTopFt
+	Polygon
+		FaceColor gold4
+		NumVerts 16
+		Data
+			0.0 0.6 -2.75
+			0.0 1.25 -3.15
+			0.0 1.5 -3.835
+			0.0 3.5 -3.835
+			0.0 3.5 3.835
+			0.0 1.5 3.835
+			0.0 1.25 3.15
+			0.0 0.6 2.75
+			0.0 -0.6 2.75
+			0.0 -1.25 3.15
+			0.0 -1.5 3.835
+			0.0 -3.5 3.835
+			0.0 -3.5 -3.835
+			0.0 -1.5 -3.835
+			0.0 -1.25 -3.15
+			0.0 -0.6 -2.75
+	EndPolygon
+EndComponent
+Component PlatformTopBk
+	Polygon
+		Translate 1.0 0.0 0.0
+		FaceColor gold4
+		NumVerts 16
+		Data
+			0.0 0.6 -2.75
+			0.0 1.25 -3.15
+			0.0 1.5 -3.835
+			0.0 3.5 -3.835
+			0.0 3.5 3.835
+			0.0 1.5 3.835
+			0.0 1.25 3.15
+			0.0 0.6 2.75
+			0.0 -0.6 2.75
+			0.0 -1.25 3.15
+			0.0 -1.5 3.835
+			0.0 -3.5 3.835
+			0.0 -3.5 -3.835
+			0.0 -1.5 -3.835
+			0.0 -1.25 -3.15
+			0.0 -0.6 -2.75
+	EndPolygon
+EndComponent
+Component PlatformTopStr
+	Refer
+		Component PlatformTop
+	EndRefer
+	Refer
+		Component PlatformTopFt
+	EndRefer
+	Refer
+		Component PlatformTopBk
+	EndRefer
+EndComponent
+Component SidePnl
+	Extrusion
+		FaceColor gold4
+		Length .2
+		NumVerts 8
+		Data
+			0.0 4.00 -4.46
+			0.0 4.0 -4.0
+			0.0 4.4 -4.0
+			0.0 4.4 -3.0
+			0.0 4.0 -3.0
+			0.0 4.0 4.46
+			0.0 -4.0 4.46
+			0.0 -4.0 -4.46
+	EndExtrusion
+EndComponent
+Component SidePnlFt
+	Polygon
+		Scale -1 1.0 1.0
+		FaceColor gold3
+		NumVerts 8
+		Data
+			0.0 4.00 -4.46
+			0.0 4.0 -4.0
+			0.0 4.4 -4.0
+			0.0 4.4 -3.0
+			0.0 4.0 -3.0
+			0.0 4.0 4.46
+			0.0 -4.0 4.46
+			0.0 -4.0 -4.46
+	EndPolygon
+EndComponent
+Component SidePnlBk
+	Polygon
+		Scale -1 1.0 1.0
+		Translate 0.2 0.0 0.0
+		FaceColor gold3
+		NumVerts 8
+		Data
+			0.0 4.00 -4.46
+			0.0 4.0 -4.0
+			0.0 4.4 -4.0
+			0.0 4.4 -3.0
+			0.0 4.0 -3.0
+			0.0 4.0 4.46
+			0.0 -4.0 4.46
+			0.0 -4.0 -4.46
+	EndPolygon
+EndComponent
+Component SidePnlStr
+	Refer
+		Component SidePnl
+	EndRefer
+	Refer
+		Component SidePnlFt
+	EndRefer
+	Refer
+		Component SidePnlBk
+	EndRefer
+EndComponent
+Component SidePnlBot
+	Extrusion
+		FaceColor gold4
+		Length .2
+		NumVerts 4
+		Data
+			0.0 4.0 -0.5
+			0.0 4.0 0.5
+			0.0 -4.0 0.5
+			0.0 -4.0 -0.5
+	EndExtrusion
+EndComponent
+Component SidePnlBotFt
+	Polygon
+		FaceColor gold4
+		NumVerts 4
+		Data
+			0.0 4.0 -0.5
+			0.0 4.0 0.5
+			0.0 -4.0 0.5
+			0.0 -4.0 -0.5
+	EndPolygon
+EndComponent
+Component SidePnlBotBk
+	Polygon
+		Translate 0.2 0.0 0.0
+		FaceColor gold4
+		NumVerts 4
+		Data
+			0.0 4.0 -0.5
+			0.0 4.0 0.5
+			0.0 -4.0 0.5
+			0.0 -4.0 -0.5
+	EndPolygon
+EndComponent
+Component SidePnlBotStr
+	Refer
+		Component SidePnlBot
+	EndRefer
+	Refer
+		Component SidePnlBotFt
+	EndRefer
+	Refer
+		Component SidePnlBotBk
+	EndRefer
+EndComponent
+Component Nozzle
+	Revolve
+		Rotate 0.0 180.0 0.0
+		FaceColor gray20
+		BackfaceCullable No
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 10
+		NumVerts 9
+		Data
+			0.0 0.3 0.0
+			0.10 0.3 0.0
+			0.10 0.2 0.0
+			0.4 0.2 0.0
+			0.6 0.28 0.0
+			0.8 0.35 0.0
+			1.0 0.42 0.0
+			1.2 0.44 0.0
+			1.4 0.45 0.0
+	EndRevolve
+EndComponent
+Component KaAnt
+	Revolve
+		Scale 0.8 0.8 0.8
+		Rotate 0.0 0.0 -30.0
+		FaceColor linen
+		BackfaceCullable No
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 20
+		NumVerts 8
+		Data
+			0.0 0.005 0.0
+			0.04 1.0 0.0
+			0.14 2.0 0.0
+			0.34 3.0 0.0
+			0.45 3.57 0.0
+			0.30 3.57 0.0
+			-0.15 2.0 0.0
+			-0.3 1.0 0.0
+	EndRevolve
+EndComponent
+Component FSSAnt
+	Revolve
+		FaceColor linen
+		BackfaceCullable No
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 20
+		NumVerts 6
+		Data
+			0.0 0.005 0.0
+			0.04 1.0 0.0
+			0.14 1.95 0.0
+			-0.05 1.95 0.0
+			-0.22 1.0 0.0
+			-0.3 0.3 0.0
+	EndRevolve
+EndComponent
+Component Ant96
+	Revolve
+		Scale 1.0 0.8 1.0
+		Rotate 0.0 -30.0 0.0
+		FaceColor linen
+		BackfaceCullable No
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 16
+		NumVerts 6
+		Data
+			0.0 0.005 0.0
+			0.04 1.0 0.0
+			0.14 2.0 0.0
+			0.34 3.0 0.0
+			0.55 4.0 0.0
+			0.74 4.75 0.0
+	EndRevolve
+EndComponent
+Component Ant96Bk
+	Revolve
+		Scale 1.0 0.8 1.0
+		Rotate 0.0 -30.0 0.0
+		FaceColor gray
+		BackfaceCullable No
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 16
+		NumVerts 7
+		Data
+			0.74 4.75 0.0
+			0.55 4.0 0.0
+			0.35 4.0 0.0
+			0.14 3.0 0.0
+			-0.06 2.0 0.0
+			-0.16 1.0 0.0
+			-0.20 0.005 0.0
+	EndRevolve
+EndComponent
+Component FSSAntArm
+	Revolve
+		FaceColor gray30
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 6
+		NumVerts 2
+		Data
+			0.0 0.6 0.0
+			5.0 0.3 0.0
+	EndRevolve
+EndComponent
+Component PlatformAssm
+	Refer
+		Component PlatformStr
+	EndRefer
+	Refer
+		Translate 8.925 0.0 0.0
+		Component PlatformTopStr
+	EndRefer
+	Refer
+		Rotate 0.0 -10.0 90.0
+		Translate 9.925 -3.7 4.0
+		Component SideFlapStr
+	EndRefer
+	Refer
+		Rotate 0.0 10.0 90.0
+		Translate 9.925 3.7 4.0
+		Component SideFlapStr
+	EndRefer
+	Refer
+		Rotate 180.0 -10.0 90.0
+		Translate 9.925 3.7 -4.0
+		Component SideFlapStr
+	EndRefer
+	Refer
+		Rotate 180.0 10.0 90.0
+		Translate 9.925 -3.7 -4.0
+		Component SideFlapStr
+	EndRefer
+	Refer
+		Rotate 0.0 90.0 0.0
+		Translate 9.95 -3.7 4.0
+		Component SideWedgeStr
+	EndRefer
+	Refer
+		Rotate 0.0 -90.0 -180.0
+		Translate 9.95 3.7 -4.0
+		Component SideWedgeStr
+	EndRefer
+	Refer
+		Rotate 90.0 0.0 90.0
+		Translate 5.5 3.5 0.0
+		Component SidePnlStr
+	EndRefer
+	Refer
+		Rotate 90.0 0.0 90.0
+		Translate 0.45 3.5 0.0
+		Component SidePnlBotStr
+	EndRefer
+	Refer
+		Rotate 90.0 0.0 90.0
+		Translate 5.5 -3.7 0.0
+		Component SidePnlStr
+	EndRefer
+	Refer
+		Rotate 90.0 0.0 90.0
+		Translate 0.45 -3.7 0.0
+		Component SidePnlBotStr
+	EndRefer
+	Refer
+		Component Nozzle
+	EndRefer
+	Refer
+		Translate 13.7 2.0 -0.0
+		Component KaAnt
+	EndRefer
+	Refer
+		Rotate 0.0 -10.0 180.0
+		Translate 13.7 0.0 4.2
+		Component FSSAnt
+	EndRefer
+	Refer
+		Translate 8.925 0.0 0.0
+		Component PlatformTopStr
+	EndRefer
+	Refer
+		Rotate 0.0 10.0 180.0
+		Translate 13.7 0.0 -4.2
+		Component FSSAnt
+	EndRefer
+	Refer
+		Translate 3.5 0.0 -11.0
+		Component Ant96
+	EndRefer
+	Refer
+		Translate 3.4 0.0 -11.0
+		Component Ant96Bk
+	EndRefer
+	Refer
+		Rotate 10.0 0.0 90.0
+		Translate 3.4 0.0 -11.0
+		Component AntArmAssm
+	EndRefer
+	Refer
+		Rotate -90.0 0.0 -90.0
+		Translate 0.5 1.3 -4.0
+		Component AntSprtStr
+	EndRefer
+	Refer
+		Rotate 0.0 60.0 0.0
+		Translate 4.6 0.0 11.0
+		Component Ant96
+	EndRefer
+	Refer
+		Rotate 0.0 60.0 0.0
+		Translate 4.5 0.0 11.0
+		Component Ant96Bk
+	EndRefer
+	Refer
+		Rotate 0.0 10.0 0.0
+		Translate 8.6 0.0 3.6
+		Component FSSAntArm
+	EndRefer
+	Refer
+		Rotate 0.0 -10.0 0.0
+		Translate 8.6 0.0 -3.6
+		Component FSSAntArm
+	EndRefer
+	Refer
+		Translate 8.6 2.0 0.0
+		Component FSSAntArm
+	EndRefer
+	Refer
+		Rotate 90.0 0.0 90.0
+		Translate 1.5 -1.1 4.0
+		Component AntSprtStr
+	EndRefer
+EndComponent
+Component SlrPnl2Shell
+	Extrusion
+		FaceColor gray30
+		Length 8.0
+		NumVerts 4
+		Data
+			0.0 3.0 -0.02
+			0.0 3.0 0.02
+			0.0 -3.0 0.02
+			0.0 -3.0 -0.02
+	EndExtrusion
+EndComponent
+Component SlrPnl2Ft
+	Polygon
+		FaceColor gray30
+		NumVerts 4
+		Data
+			0.0 3.0 -0.02
+			0.0 3.0 0.02
+			0.0 -3.0 0.02
+			0.0 -3.0 -0.02
+	EndPolygon
+EndComponent
+Component SlrPnl2Bk
+	Polygon
+		Translate 3.5 0.0 0.0
+		FaceColor gray30
+		NumVerts 4
+		Data
+			0.0 3.0 -0.02
+			0.0 3.0 0.02
+			0.0 -3.0 0.02
+			0.0 -3.0 -0.02
+	EndPolygon
+EndComponent
+Component SlrPnl2
+	SolarPanel hs702
+	Extrusion
+		Translate 0.10 0.0 0.0
+		FaceColor %002004040
+		Shininess 128
+		Specularity 0.5
+		Length 7.8
+		NumVerts 4
+		Data
+			0.0 2.9 0
+			0.0 2.9 0.04
+			0.0 -2.9 0.04
+			0.0 -2.9 0
+	EndExtrusion
+EndComponent
+Component SlrPnl2Str
+	Refer
+		Component SlrPnl2Shell
+	EndRefer
+	Refer
+		Component SlrPnl2Ft
+	EndRefer
+	Refer
+		Component SlrPnl2Bk
+	EndRefer
+EndComponent
+Component SlrPnlJnt
+	Revolve
+		Rotate 0.0 0.0 90.0
+		Translate 0.0 0.0 -4.0
+		FaceColor gray
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 4
+		NumVerts 2
+		Data
+			0.0 0.1 0.0
+			0.4 0.1 0.0
+	EndRevolve
+EndComponent
+Component SlrPnl2SubAssm
+	Refer
+		Component SlrPnl2Str
+	EndRefer
+	Refer
+		Component SlrPnl2
+	EndRefer
+	Refer
+		Translate 2.0 -3.2 4.0
+		Component SlrPnlJnt
+	EndRefer
+	Refer
+		Translate 6.0 -3.2 4.0
+		Component SlrPnlJnt
+	EndRefer
+EndComponent
+Component SlrPnl2Assm
+	Refer
+		Translate 0.0 -12.0 0.0
+		Component SlrPnl2SubAssm
+	EndRefer
+	Refer
+		Translate 0.0 -18.2 0.0
+		Component SlrPnl2SubAssm
+	EndRefer
+	Refer
+		Translate 0.0 -24.3 0.0
+		Component SlrPnl2SubAssm
+	EndRefer
+	Refer
+		Translate 0.0 -30.4 0.0
+		Component SlrPnl2SubAssm
+	EndRefer
+EndComponent
+Component Strut1
+	Revolve
+		Rotate 0.0 -90.0 0.0
+		Translate 0.0 0.0 -4.0
+		FaceColor gray
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 4
+		NumVerts 2
+		Data
+			0.0 0.1 0.0
+			8.0 0.1 0.0
+	EndRevolve
+EndComponent
+Component Strut2
+	Revolve
+		FaceColor gray
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 4
+		NumVerts 2
+		Data
+			0.0 0.1 0.0
+			1.4 0.1 0.0
+	EndRevolve
+EndComponent
+Component Strut3
+	Revolve
+		FaceColor gray
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 4
+		NumVerts 2
+		Data
+			0.0 0.1 0.0
+			5.5 0.1 0.0
+	EndRevolve
+EndComponent
+Component Rod
+	Revolve
+		Translate -0.2 0.0 0.0
+		FaceColor gray40
+		StartAngle 0.0
+		EndAngle 359.99
+		NumRevolve 10
+		NumVerts 4
+		Data
+			0.0 0.005 0.0
+			0.0 0.6 0.0
+			0.6 0.6 0.0
+			0.6 0.005 0.0
+	EndRevolve
+EndComponent
+Component SlrSprtStr
+	Refer
+		Translate 4.0 0.0 0.0
+		Component Strut1
+	EndRefer
+	Refer
+		Translate 5.0 0.0 0.0
+		Component Strut1
+	EndRefer
+	Refer
+		Translate 4.0 0.0 4.0
+		Component Strut2
+	EndRefer
+	Refer
+		Translate 4.0 0.0 -4.0
+		Component Strut2
+	EndRefer
+	Refer
+		Rotate 0.0 45.0 0.0
+		Component Strut3
+	EndRefer
+	Refer
+		Rotate 0.0 -45.0 0.0
+		Component Strut3
+	EndRefer
+	Refer
+		Component Rod
+	EndRefer
+EndComponent
+Component SlrSprtSubAssm
+	Refer
+		Component SlrSprtStr
+	EndRefer
+EndComponent
+Component SlrSprtAssm
+	Refer
+		Rotate -90.0 0.0 -90.0
+		Translate 4.0 -4.0 0.0
+		Component SlrSprtSubAssm
+	EndRefer
+EndComponent
+Component SlrPnlSubAssm
+	Refer
+		Component SlrPnl2Assm
+	EndRefer
+	Refer
+		Component SlrSprtAssm
+	EndRefer
+EndComponent
+Component SlrPnlAssmSubStr
+	Refer
+		Component SlrPnlSubAssm
+	EndRefer
+	Refer
+		Rotate 180.0 180.0 0.0
+		Translate 8 0 0
+		Component SlrPnlSubAssm
+	EndRefer
+EndComponent
+Component SlrPnlAssmStr
+	Refer
+		Translate -4.0 0.0 0.0
+		Component SlrPnlAssmSubStr
+	EndRefer
+EndComponent
+Component SlrPnlAssm
+	Pointing SolarArrays 0 0 1
+	Articulation SolarArrays
+		yRotate Rotate -360 0 360
+	EndArticulation
+	Refer
+		Component SlrPnlAssmStr
+	EndRefer
+EndComponent
+Component Body
+	Translate -4.0 0.0 0.0
+	Refer
+		Component PlatformAssm
+	EndRefer
+	Refer
+		Rotate 0.0 90.0 0.0
+		Translate 4.0 0.0 0.0
+		Component SlrPnlAssm
+	EndRefer
+EndComponent
+Component HS702
+	Root
+	UniformScale 0.3048
+	Refer
+		Rotate  0 -90 0
+		Translate 0 0 -2
+		Component Body
+	EndRefer
+EndComponent
+################################################################################
+#            COPYRIGHT 1995 Analytical Graphics, Inc.                          #
+#            This data is intended for use with Satellite Tool Kit (TM)        #
+#            products only.  Any other use is expressly forbidden.             #
+################################################################################
