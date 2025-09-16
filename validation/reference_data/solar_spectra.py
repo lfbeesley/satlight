@@ -7,7 +7,7 @@ plt.rcParams['font.family'] = 'STIXGeneral'
 plt.rcParams['font.size'] = 12
 
 # Read data file
-file_name = '/Users/l.beesley@bham.ac.uk/Documents/LightcurveAnalysis/lightcurve-generator/validation/reference_data/solar_spectra.txt'
+file_name = 'data/solar_spectra.txt'
 
 # Skip header
 data = np.loadtxt(file_name, skiprows=142) 
