@@ -61,20 +61,22 @@ class GCRSGeometry():
         sat_to_obs_vector = obs_pos - sat_pos
         sat_to_obs_unit = sat_to_obs_vector / np.linalg.norm(sat_to_obs_vector)
         obs_to_sat_distance = np.linalg.norm(sat_to_obs_vector)
-        sat_to_earth_center_unit = -sat_pos / np.linalg.norm(sat_pos) # Nadir vector
+        nadir_unit = -sat_pos / np.linalg.norm(sat_pos)  # Points toward Earth (nadir)
+        
+        self.nadir = nadir_unit # Nadir vector
+        self.zenith = - nadir_unit
 
         sat_vel = self.satellite.at(self.time).velocity.km_per_s # Used for translation to sat reference frame
         along_track_unit = sat_vel / np.linalg.norm(sat_vel)
         
-        self.nadir = - sat_to_earth_center_unit
         self.along_track = along_track_unit
-        self.cross_track = np.cross(along_track_unit,sat_to_earth_center_unit)
+        self.cross_track = np.cross(along_track_unit, self.zenith)
 
         self.vectors = {
             'sun_to_sat_unit': sun_to_sat_unit,
             'sat_to_obs_unit': sat_to_obs_unit,
             'obs_to_sat_distance': obs_to_sat_distance,
-            'sat_to_earth_center_unit': sat_to_earth_center_unit,
+            'sat_to_earth_center_unit': nadir_unit,
             'sat_vel': sat_vel,
             'along_track_unit' : along_track_unit
         }
