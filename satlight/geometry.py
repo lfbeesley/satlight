@@ -1,5 +1,10 @@
 import numpy as np
 from skyfield.api import load, wgs84, EarthSatellite
+from datetime import timedelta
+from astropy.constants import R_sun, R_earth, au
+from astropy import units as u
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 class Geometry():
     """
@@ -14,7 +19,7 @@ class Geometry():
         self.sun = self.planets['sun']
         self.moon = self.planets['moon']
     
-    def create_satellite(self, tle_line1, tle_line2, name = 'satellite'):
+    def create_satellite(self, tle_line1, tle_line2, name = 'satellite'): #future will include OMM and custom orbits
         """Create a satellite object from TLE data."""
         self.satellite = EarthSatellite(tle_line1, tle_line2, name)
         return self.satellite
@@ -43,6 +48,37 @@ class Geometry():
 
         self.time = self.ts.utc(*time_utc)  
         self._auto_calculate()
+    
+    def next_visibility(self, t0_utc, N = 24, i = 30.0):
+        """Calculate the next times the object will be observable above i° within the following N hours.
+        Includes illumination and local daytime.
+
+        Args:
+            time_utc: Individual start time in (2025, 5, 4, 0, 44, 38) format.
+            N: Number of hours to search ahead (default: 24)
+            i: Minimum altitude in degrees (default: 30.0)
+        
+        Returns:
+            Start time of observation (UTC).
+            Duration of pass (seconds).
+            """
+
+        t0 = self.ts.utc(*t0_utc)
+        t1 = t0 + timedelta(hours = N)
+
+        t, events = self.satellite.find_events(self.observer, t0, t1, altitude_degrees= i)
+        
+        if len(events) > 0:
+            mask_rise = (events == 0)
+            mask_set = (events == 2)
+
+            t_rise = t[mask_rise] # Rising above threshold
+            t_set = t[mask_set]   # Setting below threshold
+
+            duration = (t_set - t_rise) * 86400.0 # To convert to seconds
+            return t_rise, duration
+        else:
+            print("Satellite is not observable during this period. Increase the search time or change observer location.")
 
     def _auto_calculate(self):
         """Automatically calculate positions and vectors if we have all required inputs."""
@@ -57,9 +93,10 @@ class Geometry():
         
         Returns in km's."""
         self.positions = {
-            'satellite': self.satellite.at(self.time).position.km,
+            'satellite': self.satellite.at(self.time).position.km, # automatically in GCRS
             'observer': self.observer.at(self.time).position.km,
-            'sun': (self.sun.at(self.time) - self.earth.at(self.time)).position.km
+            'sun': (self.sun.at(self.time) - self.earth.at(self.time)).position.km, # Subtract to move from Barycentric to GCRS
+            'earth': np.zeros((3, len(self.time))) 
         }
 
     def _calculate_vectors(self):
@@ -123,6 +160,24 @@ class Geometry():
         
         self.phase_angle = np.arccos(np.clip(dot_product, -1.0, 1.0))
 
+    def eclipse_type(self):
+        """Calculate the nature of the eclipse, used to identify object illumination"""
+        # Positions
+        sat_pos = self.positions['satellite']
+        sun_pos = self.positions['sun']
+
+        # Distances
+        dist_sat_to_earth = np.linalg.norm(sat_pos - earth_pos, axis=0) # Distance from satellite to Earth
+
+        # Apparent angular radii
+        theta_earth = np.arctan(R_earth.to(u.km).value/dist_sat_to_earth)
+        theta_earth= np.arctan(R_sun.to(u.km).value / au.to(u.km).value)
+
+        print(np.degrees(theta_earth),np.degrees(theta_earth))
+    
+
+
+
 if __name__ == '__main__':
     print("="*50)
     print("SATELLITE GEOMETRY TEST - TIME SERIES")
@@ -131,9 +186,9 @@ if __name__ == '__main__':
     # Test parameters
     line1 = '1 55341U 23013L   25094.09942582  .00001345  00000-0  11466-3 0 9990'
     line2 = '2 55341  43.0031 345.7949 0001445 255.2239 104.8444 15.02528780121056'
-    time_utc = (2025, 5, 4, 21, 30, range(0, 60))  # 60 seconds
-    observer_lat = 43.6469
-    observer_lon = 41.4406
+    time_utc = (2025, 5, 4, 0, 25, range(0,200))  # 60 seconds
+    observer_lat = 28.29156
+    observer_lon = -16.62
     observer_alt_m = 2070
     
     print(f"Satellite TLE: {line1[2:7]} ({line1[18:32].strip()})")
@@ -150,15 +205,15 @@ if __name__ == '__main__':
     geometry.create_observer(observer_lat, observer_lon, observer_alt_m)
     geometry.create_satellite(line1, line2)
     geometry.set_time(time_utc)
-    
-    print()
-    
-    # Print array shapes
+
+    # Check Satellite is visibile:
+    print("\n" + "-"*40)
+    print("OBSERVATION TIMES")
     print("-"*40)
-    print("ARRAY SHAPES (should be 3x60)")
-    print("-"*40)
-    for obj, pos in geometry.positions.items():
-        print(f"{obj.capitalize():10}: {pos.shape}")
+    t, dur = geometry.next_visibility((2025, 5, 4, 22, 30))
+    for iN in range(len(t)):
+        print(f"Observable above 30° from {t[iN].utc_strftime('%d/%m/%Y %H:%M:%S')} for {dur[iN]:.0f} seconds.")
+
     
     # Print first and last time steps
     print("\n" + "-"*40)
@@ -233,3 +288,40 @@ if __name__ == '__main__':
     print("TIME SERIES TEST COMPLETE")
     print(f"Successfully processed {geometry.positions['satellite'].shape[1]} time steps")
     print(f"{'='*50}")
+
+
+
+    # Extract positions from geometry
+    sat = geometry.positions['satellite']
+    obs = geometry.positions['observer']
+
+    # Earth parameters
+    R_earth = 6371  # km
+    u = np.linspace(0, 2 * np.pi, 100)
+    v = np.linspace(0, np.pi, 100)
+    x_earth = R_earth * np.outer(np.cos(u), np.sin(v))
+    y_earth = R_earth * np.outer(np.sin(u), np.sin(v))
+    z_earth = R_earth * np.outer(np.ones_like(u), np.cos(v))
+
+    # Create 3D figure
+    fig = plt.figure(figsize=(10,8))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot Earth as a sphere
+    ax.plot_surface(x_earth, y_earth, z_earth, color='b', alpha=0.3, edgecolor='k')
+
+    # Plot satellite and observer
+    ax.plot(sat[0], sat[1], sat[2], label='Satellite', color='red', marker='o')
+    ax.plot(obs[0], obs[1], obs[2], label='Observer', color='green', marker='^')
+
+    # Labels and legend
+    ax.set_xlabel('X [km]')
+    ax.set_ylabel('Y [km]')
+    ax.set_zlabel('Z [km]')
+    ax.legend()
+    ax.set_title('Satellite and Observer with Earth Sphere')
+
+    # Make aspect ratio equal
+    ax.set_box_aspect([1,1,1])
+
+    plt.show()
