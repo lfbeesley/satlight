@@ -6,6 +6,11 @@ from astropy import units as u
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+# Constants
+R_earth = R_earth.to(u.km).value
+R_sun =  R_sun.to(u.km).value
+AU = au.to(u.km).value
+
 class Geometry():
     """
     Calculate geometric relationships between satellite, observer, Sun, and Earth
@@ -164,17 +169,41 @@ class Geometry():
         """Calculate the nature of the eclipse, used to identify object illumination"""
         # Positions
         sat_pos = self.positions['satellite']
-        sun_pos = self.positions['sun']
+        earth_pos = self.positions['earth']
 
         # Distances
         dist_sat_to_earth = np.linalg.norm(sat_pos - earth_pos, axis=0) # Distance from satellite to Earth
 
         # Apparent angular radii
-        theta_earth = np.arctan(R_earth.to(u.km).value/dist_sat_to_earth)
-        theta_earth= np.arctan(R_sun.to(u.km).value / au.to(u.km).value)
+        theta_earth = np.arctan(R_earth/dist_sat_to_earth)
+        theta_sun= np.arctan(R_sun/AU)
 
-        print(np.degrees(theta_earth),np.degrees(theta_earth))
-    
+        # Angular seperation between Earth and Sun
+        theta = self.phase_angle
+
+        if self.phase_angle > theta_sun + theta_earth:
+            # Object is fully illumintated
+            f = 1 
+
+        elif self.phase_angle < theta_sun:
+            # Object is fully eclipsed
+            f = 0
+        
+        else:
+            # Object is partially illuminated
+            r1 = theta_sun
+            r2 = theta_earth
+            d = theta
+
+            phi1 = np.arccos((d**2 + r1**2 - r2**2) / (2 * d * r1))
+            phi2 = np.arccos((d**2 + r2**2 - r1**2) / (2 * d * r2))
+            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2))
+
+            f = 1 - A / (np.pi * r1**2)
+
+        return f  
+
+
 
 
 
@@ -296,12 +325,11 @@ if __name__ == '__main__':
     obs = geometry.positions['observer']
 
     # Earth parameters
-    R_earth = 6371  # km
-    u = np.linspace(0, 2 * np.pi, 100)
+    ui = np.linspace(0, 2 * np.pi, 100)
     v = np.linspace(0, np.pi, 100)
-    x_earth = R_earth * np.outer(np.cos(u), np.sin(v))
-    y_earth = R_earth * np.outer(np.sin(u), np.sin(v))
-    z_earth = R_earth * np.outer(np.ones_like(u), np.cos(v))
+    x_earth = R_earth * np.outer(np.cos(ui), np.sin(v))
+    y_earth = R_earth * np.outer(np.sin(ui), np.sin(v))
+    z_earth = R_earth * np.outer(np.ones_like(ui), np.cos(v))
 
     # Create 3D figure
     fig = plt.figure(figsize=(10,8))
