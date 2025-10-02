@@ -1,4 +1,4 @@
-# lightcurve-generator
+# satlight
 
 First: Run MAIN_GS_PASSES.py and select a satellite from active celestrak TLEs (this uses the helper file load_TLEs.py)
 
