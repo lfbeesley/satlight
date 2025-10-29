@@ -56,8 +56,8 @@ sun_direction = Vector((0, 1, 0))
 
 # Add camera
 camera_data = bpy.data.cameras.new(name="Camera")
-camera_data.type = 'PERSP'
-camera_data.angle = 0.5 # 0.5 #TO BE EDITTED TO SCALE THE OBJECT
+camera_data.type = 'ORTHO'
+camera_data.ortho_scale = 0.5 #TO BE EDITTED TO SCALE THE OBJECT
 camera_object = bpy.data.objects.new("Camera", camera_data)
 bpy.context.collection.objects.link(camera_object)
 bpy.context.scene.camera = camera_object
@@ -175,6 +175,7 @@ for y in tqdm(range(height)):
             
             image[y, x] = intensity
 
+#I think it's nearly there, lets try simulation of a pass
 print("\nRay casting complete!")
 print(f"For orthographic scale of {camera_data.ortho_scale}")
 print(f"Total measured Intensity: {np.sum(image):.2e} W")

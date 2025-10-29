@@ -97,12 +97,21 @@ class Geometry():
         """Get positions of satellite, observer, and sun (in GCRS).
         
         Returns in km's."""
-        self.positions = {
-            'satellite': self.satellite.at(self.time).position.km, # automatically in GCRS
-            'observer': self.observer.at(self.time).position.km,
-            'sun': (self.sun.at(self.time) - self.earth.at(self.time)).position.km, # Subtract to move from Barycentric to GCRS
-            'earth': np.zeros((3, len(self.time))) 
-        }
+        if self.time.shape == ():
+            self.positions = {
+                'satellite': self.satellite.at(self.time).position.km, # automatically in GCRS
+                'observer': self.observer.at(self.time).position.km,
+                'sun': (self.sun.at(self.time) - self.earth.at(self.time)).position.km, # Subtract to move from Barycentric to GCRS
+                'earth': np.zeros(3) 
+            }
+
+        else:
+            self.positions = {
+                'satellite': self.satellite.at(self.time).position.km, # automatically in GCRS
+                'observer': self.observer.at(self.time).position.km,
+                'sun': (self.sun.at(self.time) - self.earth.at(self.time)).position.km, # Subtract to move from Barycentric to GCRS
+                'earth': np.zeros((3, len(self.time))) 
+            }
 
     def _calculate_vectors(self):
         """Calculate and store all vectors and distances."""
@@ -181,16 +190,29 @@ class Geometry():
         # Angular seperation between Earth and Sun
         theta = self.phase_angle
 
-        if self.phase_angle > theta_sun + theta_earth:
-            # Object is fully illumintated
-            f = 1 
+        # Calculate fraction of sun that is visible
+        f = np.zeros_like(theta)
 
-        elif self.phase_angle < theta_sun:
-            # Object is fully eclipsed
-            f = 0
+        # Object is fully illumintated
+        f = np.where(theta > theta_sun + theta_earth, 1, f)
+
+        # Object is fully eclipsed
+        f = np.where(theta < theta_sun - theta_earth, 0, f)
+
+        # Object is partially illuminated
+        mask = (theta <= theta_sun + theta_earth) & (theta >= np.abs(theta_sun - theta_earth))
+
+        if np.any(mask):  # Only compute if there’s at least one element
+            r1 = theta_sun
+            r2 = theta_earth
+            d = theta[mask]
+
+            phi1 = np.arccos((d**2 + r1**2 - r2**2) / (2 * d * r1))
+            phi2 = np.arccos((d**2 + r2**2 - r1**2) / (2 * d * r2))
+            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2))
+            f[mask] = 1 - A / (np.pi * r1**2)
         
         else:
-            # Object is partially illuminated
             r1 = theta_sun
             r2 = theta_earth
             d = theta
@@ -198,15 +220,12 @@ class Geometry():
             phi1 = np.arccos((d**2 + r1**2 - r2**2) / (2 * d * r1))
             phi2 = np.arccos((d**2 + r2**2 - r1**2) / (2 * d * r2))
             A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2))
-
             f = 1 - A / (np.pi * r1**2)
 
         return f  
 
 
-
-
-
+'''
 if __name__ == '__main__':
     print("="*50)
     print("SATELLITE GEOMETRY TEST - TIME SERIES")
@@ -215,7 +234,7 @@ if __name__ == '__main__':
     # Test parameters
     line1 = '1 55341U 23013L   25094.09942582  .00001345  00000-0  11466-3 0 9990'
     line2 = '2 55341  43.0031 345.7949 0001445 255.2239 104.8444 15.02528780121056'
-    time_utc = (2025, 5, 4, 0, 25, range(0,200))  # 60 seconds
+    time_utc = (2025, 5, 4, 0, 25, 30)  # 60 seconds
     observer_lat = 28.29156
     observer_lon = -16.62
     observer_alt_m = 2070
@@ -244,18 +263,6 @@ if __name__ == '__main__':
         print(f"Observable above 30° from {t[iN].utc_strftime('%d/%m/%Y %H:%M:%S')} for {dur[iN]:.0f} seconds.")
 
     
-    # Print first and last time steps
-    print("\n" + "-"*40)
-    print("POSITIONS - FIRST & LAST TIME STEPS (km)")
-    print("-"*40)
-    for obj, pos in geometry.positions.items():
-        if obj == 'sun':
-            print(f"{obj.capitalize()} (t=0):  [{pos[0,0]:11.0f}, {pos[1,0]:11.0f}, {pos[2,0]:11.0f}]")
-            print(f"{obj.capitalize()} (t=59): [{pos[0,-1]:11.0f}, {pos[1,-1]:11.0f}, {pos[2,-1]:11.0f}]")
-        else:
-            print(f"{obj.capitalize()} (t=0):  [{pos[0,0]:8.1f}, {pos[1,0]:8.1f}, {pos[2,0]:8.1f}]")
-            print(f"{obj.capitalize()} (t=59): [{pos[0,-1]:8.1f}, {pos[1,-1]:8.1f}, {pos[2,-1]:8.1f}]")
-    
     # Print vector shapes and sample values
     print("\n" + "-"*40)
     print("VECTOR ARRAY SHAPES & SAMPLE VALUES")
@@ -266,59 +273,6 @@ if __name__ == '__main__':
     print(f"  Nadir: {geometry.nadir.shape}")
     print(f"  Along-track: {geometry.along_track_unit.shape}")
     print(f"  Cross-track: {geometry.cross_track_unit.shape}")
-    
-    # Show distance and phase angle variation
-    print("\n" + "-"*40)
-    print("TIME VARIATION ANALYSIS")
-    print("-"*40)
-    print(f"Distance range: {geometry.prop_distance.min():.1f} - {geometry.prop_distance.max():.1f} km")
-    print(f"Distance change: {geometry.prop_distance[-1] - geometry.prop_distance[0]:+.1f} km over 60s")
-    print(f"Phase angle range: {np.degrees(geometry.phase_angle).min():.1f}° - {np.degrees(geometry.phase_angle).max():.1f}°")
-    print(f"Phase angle change: {np.degrees(geometry.phase_angle[-1] - geometry.phase_angle[0]):+.2f}° over 60s")
-    
-    # Test orthogonality at first and last time steps
-    print("\n" + "-"*40)
-    print("ORTHOGONALITY CHECK (First & Last)")
-    print("-"*40)
-    
-    # First time step
-    nadir_0 = geometry.nadir[:, 0]
-    along_0 = geometry.along_track_unit[:, 0]
-    cross_0 = geometry.cross_track_unit[:, 0]
-    
-    print("t=0:")
-    print(f"  Nadir · Along-track: {np.dot(nadir_0, along_0):8.5f}")
-    print(f"  Nadir · Cross-track: {np.dot(nadir_0, cross_0):8.5f}")
-    print(f"  Along · Cross-track: {np.dot(along_0, cross_0):8.5f}")
-    
-    # Last time step  
-    nadir_59 = geometry.nadir[:, -1]
-    along_59 = geometry.along_track_unit[:, -1]
-    cross_59 = geometry.cross_track_unit[:, -1]
-    
-    print("t=59:")
-    print(f"  Nadir · Along-track: {np.dot(nadir_59, along_59):8.5f}")
-    print(f"  Nadir · Cross-track: {np.dot(nadir_59, cross_59):8.5f}")
-    print(f"  Along · Cross-track: {np.dot(along_59, cross_59):8.5f}")
-    
-    # Show some sample time steps for verification
-    print("\n" + "-"*40)
-    print("SAMPLE TIME SERIES DATA")
-    print("-"*40)
-    sample_times = [0, 14, 29, 44, 59]  # Show 5 time steps
-    print(f"{'Time':>4} {'Distance':>8} {'Phase°':>7} {'Altitude':>8}")
-    print("-" * 30)
-    
-    for i in sample_times:
-        sat_alt = np.linalg.norm(geometry.positions['satellite'][:, i]) - 6371
-        print(f"{i:4d} {geometry.prop_distance[i]:8.1f} {np.degrees(geometry.phase_angle[i]):7.1f} {sat_alt:8.1f}")
-    
-    print(f"\n{'='*50}")
-    print("TIME SERIES TEST COMPLETE")
-    print(f"Successfully processed {geometry.positions['satellite'].shape[1]} time steps")
-    print(f"{'='*50}")
-
-
 
     # Extract positions from geometry
     sat = geometry.positions['satellite']
@@ -353,3 +307,4 @@ if __name__ == '__main__':
     ax.set_box_aspect([1,1,1])
 
     plt.show()
+'''
