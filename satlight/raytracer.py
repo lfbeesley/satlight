@@ -4,12 +4,13 @@ from mathutils import Vector
 import trimesh
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import BRDF
+from bpy_extras.object_utils import world_to_camera_view
 
-# ===== MANUAL SETTINGS =====
 obj_path = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/data/models/Starlink/starlink_HR/uploads_files_3710445_SpaceXStarlinkSatelliteHighRes.obj/SpaceXStarlinkSatelliteHighRes.obj'
 
 # CAMERA PRELIM SETUP
-CAMERA_DISTANCE = 30
+CAMERA_DISTANCE = 10
 resolution_X = 500          # Width in pixels
 resolution_Y = 750          # Height in pixels
 
@@ -17,27 +18,29 @@ resolution_Y = 750          # Height in pixels
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 
-# Remove all lights
-for light in bpy.data.lights:
+for light in bpy.data.lights: # Remove all lights
     bpy.data.lights.remove(light)
 
 # Load with trimesh to get true geometric center
 mesh = trimesh.load(obj_path, force='mesh')
 
-# If it's a scene with multiple meshes, combine them
+# Scene is with multiple mesh
 if isinstance(mesh, trimesh.Scene):
-    # Combine all meshes in the scene
     mesh = trimesh.util.concatenate([
         trimesh.Trimesh(vertices=geom.vertices, faces=geom.faces)
         for geom in mesh.geometry.values()
     ])
 
-# Get the geometric center (centroid of vertices)
-geometric_center = (0, 0, 5) #mesh.vertices.mean(axis=0)
+# Compute the axis-aligned bounding box (AABB)
+bounding_box = mesh.bounds  
+min_corner, max_corner = bounding_box
+
+# Centre of bounding box
+geometric_center = (min_corner + max_corner) / 2.0
 print(f"Geometric center from trimesh: {geometric_center}")
 
-# Import into Blender
-bpy.ops.wm.obj_import(filepath=obj_path)
+# Import into Blender and ignore .mtl file
+bpy.ops.wm.obj_import(filepath=obj_path, filter_obj = True)
 
 # Get all imported objects
 imported_objects = bpy.context.selected_objects
@@ -45,7 +48,7 @@ imported_objects = bpy.context.selected_objects
 # Move all objects so the geometric center is at origin
 offset = Vector(geometric_center)
 for obj in imported_objects:
-    obj.location -= offset
+    obj.location += offset
 
 # Add sun light at (0, 0, 20)
 light_data = bpy.data.lights.new(name="Sun", type='SUN')
@@ -57,14 +60,17 @@ sun_direction = Vector((0, 1, 0))
 # Add camera
 camera_data = bpy.data.cameras.new(name="Camera")
 camera_data.type = 'ORTHO'
-camera_data.ortho_scale = 0.5 #TO BE EDITTED TO SCALE THE OBJECT
 camera_object = bpy.data.objects.new("Camera", camera_data)
 bpy.context.collection.objects.link(camera_object)
 bpy.context.scene.camera = camera_object
+camera_obj = bpy.data.objects['Camera']
 
 # Set camera position at specified distance
 initial_direction = Vector((0, 1, 1)).normalized()
 camera_object.location = initial_direction * CAMERA_DISTANCE
+camera_obj.data.ortho_scale = np.max(max_corner - min_corner)
+print(f"Ortho scale set to: {camera_obj.data.ortho_scale}")
+
 
 # Point camera at geometric center (which is now at origin)
 direction = Vector((0, 0, 0)) - camera_object.location
@@ -84,9 +90,9 @@ print(f"Camera position: {camera_object.location}")
 print(f"Camera distance: {CAMERA_DISTANCE}")
 print(f"Resolution: {resolution_X}x{resolution_Y}")
 
-# Simple Lambertian BRDF
-def simple_lambertian_brdf(normal, light_dir, view_dir, albedo = 1):
-    """Simple Lambertian shading"""
+# Lambertian BRDF
+def lambertian_brdf(normal, light_dir, view_dir, albedo = 1):
+    """Lambertian shading"""
     n_dot_l = max(0, np.dot(normal, light_dir))
     return albedo / np.pi * n_dot_l
 
@@ -112,13 +118,16 @@ camera_pos = np.array(camera_object.location)
 aspect_ratio_render = width / height
 
 # Calculate camera pixel size
-pixel_size_x = camera_data.ortho_scale / resolution_Y
-pixel_size_y = camera_data.ortho_scale / aspect_ratio_render / resolution_X
+pixel_size_x = (camera_data.ortho_scale * aspect_ratio_render) / resolution_Y
+pixel_size_y = camera_data.ortho_scale / resolution_X
 pixel_area = pixel_size_x * pixel_size_y
 
 projected_areas = []
 
-distance_to_observer = 300e3
+distance_to_observer = 550e3
+
+ray_dir_world = (cam_matrix @ Vector((0, 0, -1)) - cam_matrix @ Vector((0, 0, 0))).normalized()
+ray_dir = np.array(ray_dir_world)
 
 # Ray cast for each pixel
 for y in tqdm(range(height)):
@@ -128,21 +137,18 @@ for y in tqdm(range(height)):
         screen_y = 1.0 - (2.0 * y / height)  # Flipped Y axis
         
         # Ray direction in camera to scale to local coordinates
-        ray_cam = Vector((
-            screen_x * (camera_data.ortho_scale / 2),
+        ray_origin_cam = Vector((
+            screen_x * (camera_data.ortho_scale / 2) * aspect_ratio_render,
             screen_y * (camera_data.ortho_scale / 2),
-            -1.0
+            0.0
         ))
         
-        # Transform ray to world space
-        ray_dir_world = (cam_matrix.to_3x3() @ ray_cam).normalized()
-        ray_dir = np.array(ray_dir_world)
+        ray_origin_world = cam_matrix @ ray_origin_cam
         
-        # Cast ray
         result, location, normal, index, obj_hit, matrix = scene.ray_cast(
             depsgraph,
-            camera_pos,
-            ray_dir
+            ray_origin_world,
+            ray_dir            
         )
         
         if result:
@@ -163,7 +169,7 @@ for y in tqdm(range(height)):
                 intensity = 0 
             else:
                 view_dir = -ray_dir
-                intensity = simple_lambertian_brdf(hit_normal, sun_direction, view_dir)
+                intensity = lambertian_brdf(hit_normal, sun_direction, view_dir)
 
                 # Calculated projected area
                 cos_theta = max(0,np.dot(hit_normal, view_dir))
@@ -171,7 +177,7 @@ for y in tqdm(range(height)):
                 projected_area = pixel_area * cos_theta  
                 projected_areas.append(projected_area)   
 
-                intensity *= (1360 * projected_area) / (4 * np.pi * distance_to_observer**2)                   
+                intensity *= (1360 * projected_area) /  distance_to_observer**2              
             
             image[y, x] = intensity
 
