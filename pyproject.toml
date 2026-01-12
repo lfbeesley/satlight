@@ -2,8 +2,8 @@
 name = "example_package"
 version = "0.0.1"
 authors = [
-  { name = "Lily Beesley", email = "l.beesley@bham.ac.uk" },
-  { name = "Gruffudd Jones", email = "gxj236@student.bham.ac.uk"},
+  { name = "L Beesley", email = "l.beesley@bham.ac.uk" },
+  { name = "G Jones", email = "gxj236@student.bham.ac.uk"},
 ]
 description = "A package to produce high fidelity lightcurves"
 requires-python = ">=3.9"
