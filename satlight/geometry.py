@@ -3,6 +3,7 @@ from skyfield.api import load, wgs84, EarthSatellite
 from datetime import timedelta
 from astropy.constants import R_sun, R_earth, au
 from astropy import units as u
+from astropy.time import Time, TimeDelta
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -24,7 +25,7 @@ class Geometry():
         self.sun = self.planets['sun']
         self.moon = self.planets['moon']
     
-    def create_satellite(self, tle_line1, tle_line2, name = 'satellite'): #future will include OMM and custom orbits
+    def create_satellite(self, tle_line1, tle_line2, name = 'satellite'): #future will include OMM and custom orbits?
         """Create a satellite object from TLE data."""
         self.satellite = EarthSatellite(tle_line1, tle_line2, name)
         return self.satellite
@@ -64,8 +65,9 @@ class Geometry():
             i: Minimum altitude in degrees (default: 30.0)
         
         Returns:
-            Start time of observation (UTC).
-            Duration of pass (seconds).
+            list of tuples, where:
+            Each tuple describes a satellite visibility window in the format:
+            (year, month, day, hour, minute, range(start_second, stop_second)).
             """
 
         t0 = self.ts.utc(*t0_utc)
@@ -81,7 +83,25 @@ class Geometry():
             t_set = t[mask_set]   # Setting below threshold
 
             duration = (t_set - t_rise) * 86400.0 # To convert to seconds
-            return t_rise, duration
+            
+            # Convert to (YYYY, MM, DD, hh, mm, ss)
+            years, months, days, hours, minutes, seconds = t_rise.utc
+
+            results = []
+            for i in range(len(years)):
+                start = int(seconds[i])
+                dur = int(duration[i])
+                tup = (
+                    int(years[i]),
+                    int(months[i]),
+                    int(days[i]),
+                    int(hours[i]),
+                    int(minutes[i]),
+                    range(start, start + dur)
+                )
+                results.append(tup)
+
+            return results
         else:
             print("Satellite is not observable during this period. Increase the search time or change observer location.")
 
@@ -153,15 +173,22 @@ class Geometry():
             along_track = np.cross(orbit_normal, radial, axis=0)
             along_track = along_track / np.linalg.norm(along_track, axis=0)
         
-        # LVLH frame assignments
+        # LVLH frame axis
         self.nadir = radial              # Toward Earth
-        self.along_track_unit = along_track  # X-axis (velocity direction)
-        self.cross_track_unit = orbit_normal # Y-axis (orbit normal)  
-        self.zenith = -self.nadir        # Z-axis (away from Earth)
+        self.along_track = along_track  # X-axis (velocity direction)
+        self.cross_track = orbit_normal # Y-axis (orbit normal)  
+        self.zenith = -radial       # Z-axis (away from Earth)
 
+        # Rotate 
+        R = np.stack([along_track, orbit_normal, -radial],axis=1)
+
+        # Transform vectors 
+        self.incident_vector_lvlh = np.einsum('ijn,jn->in', R, self.incident_vector)
+        self.outgoing_vector_lvlh = np.einsum('ijn,jn->in', R, self.outgoing_vector)
+        
 
     def _calculate_solar_phase_angle(self):
-        """Calculate and store solar phase angle."""
+        """Calculate and store solar phase angle in radians."""
         incident = self.incident_vector
         outgoing = self.outgoing_vector
         
@@ -225,7 +252,7 @@ class Geometry():
         return f  
 
 
-'''
+
 if __name__ == '__main__':
     print("="*50)
     print("SATELLITE GEOMETRY TEST - TIME SERIES")
@@ -234,7 +261,7 @@ if __name__ == '__main__':
     # Test parameters
     line1 = '1 55341U 23013L   25094.09942582  .00001345  00000-0  11466-3 0 9990'
     line2 = '2 55341  43.0031 345.7949 0001445 255.2239 104.8444 15.02528780121056'
-    time_utc = (2025, 5, 4, 0, 25, 30)  # 60 seconds
+    time_utc = (2025, 5, 4, 0, 25, range(0,60))  # 60 seconds
     observer_lat = 28.29156
     observer_lon = -16.62
     observer_alt_m = 2070
@@ -258,11 +285,13 @@ if __name__ == '__main__':
     print("\n" + "-"*40)
     print("OBSERVATION TIMES")
     print("-"*40)
-    t, dur = geometry.next_visibility((2025, 5, 4, 22, 30))
-    for iN in range(len(t)):
-        print(f"Observable above 30° from {t[iN].utc_strftime('%d/%m/%Y %H:%M:%S')} for {dur[iN]:.0f} seconds.")
-
-    
+    t = geometry.next_visibility((2025, 5, 4, 22, 30))
+    for tup in t:
+        year, month, day, hour, minute, r = tup
+        duration = r.stop - r.start  # extract from range
+        print(f"Observable above 30° from ({year}, {month}, {day}, {hour}, {minute}, {r.start}) "
+            f"for {duration} seconds.")
+        
     # Print vector shapes and sample values
     print("\n" + "-"*40)
     print("VECTOR ARRAY SHAPES & SAMPLE VALUES")
@@ -271,8 +300,8 @@ if __name__ == '__main__':
     print(f"Phase angle array shape: {geometry.phase_angle.shape}")
     print(f"Reference frame shapes:")
     print(f"  Nadir: {geometry.nadir.shape}")
-    print(f"  Along-track: {geometry.along_track_unit.shape}")
-    print(f"  Cross-track: {geometry.cross_track_unit.shape}")
+    print(f"  Along-track: {geometry.along_track.shape}")
+    print(f"  Cross-track: {geometry.cross_track.shape}")
 
     # Extract positions from geometry
     sat = geometry.positions['satellite']
@@ -307,4 +336,3 @@ if __name__ == '__main__':
     ax.set_box_aspect([1,1,1])
 
     plt.show()
-'''
