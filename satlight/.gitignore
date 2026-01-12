@@ -3,3 +3,9 @@ de421.bsp
 .DS_Store
 .vscode/
 __pycache__/
+.DS_Store
+.vscode/
+__pycache__/
+*.pyc
+.DS_Store
+de421.bsp
