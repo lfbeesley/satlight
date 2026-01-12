@@ -1,163 +1,197 @@
-"""
-Test script with real Starlink v1.5 satellite model
-Demonstrates ray casting, shadowing, and BRDF application
-
-Run with: python starlink_ray_test.py
-Requires: pip install bpy
-"""
-
 import bpy
 import numpy as np
-from pathlib import Path
+from mathutils import Vector
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+import BRDF
+from hide_warnings import hide_warnings
 
-print("="*70)
-print("STARLINK SATELLITE RAY TRACING TEST")
-print("="*70)
+obj_path = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/data/models/Starlink/starlink_HR/uploads_files_3710445_SpaceXStarlinkSatelliteHighRes.obj/SpaceXStarlinkSatelliteHighRes.obj'
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
+# CAMERA PRELIM SETUP
+CAMERA_DISTANCE = 10
+resolution_X = 500          # Width in pixels
+resolution_Y = 700          # Height in pixels
 
-# Path to your Starlink .obj file
-OBJ_FILE_PATH = "/Users/l.beesley@bham.ac.uk/Documents/LightcurveAnalysis/satlight/data/models/Starlink/starlink_HR/uploads_files_3710445_SpaceXStarlinkSatelliteHighRes.obj/SpaceXStarlinkSatelliteHighRes.obj"  # UPDATE THIS
-
-# Simple Lambertian BRDF for testing
-def simple_lambertian_brdf(normal, sun_dir, view_dir, reflectance=0.3):
-    """
-    Simple diffuse BRDF for testing
-    
-    Returns intensity based on cosine law
-    """
-    cos_theta = max(0, np.dot(sun_dir, normal))
-    return reflectance * cos_theta
-
-# ============================================================================
-# SETUP SCENE
-# ============================================================================
-
-print("\nSetting up scene...")
-
-# Clear existing scene
+# Clear the scene
 bpy.ops.wm.read_factory_settings(use_empty=True)
+
+# Import into Blender and ignore .mtl file
+@hide_warnings()
+def add_object(file_name):
+    bpy.ops.wm.obj_import(filepath=file_name, filter_obj=True, filter_glob='*.mtl', use_split_objects=False, use_split_groups=False)
+
+add_object(obj_path)
+#bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, 0))
+# Get all imported objects
+imported_objects = bpy.context.selected_objects
+
+# Move all objects so the geometric center is at origin
+# Collect all mesh objects
+mesh_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
+
+if not mesh_objects:
+    raise RuntimeError("No mesh objects found in scene.")
+
+# Compute bounding box of all meshes combined
+bpy.context.view_layer.update()
+all_corners = []
+for obj in mesh_objects:
+    all_corners.extend([obj.matrix_world @ Vector(corner) for corner in obj.bound_box])
+
+min_corner = Vector(map(min, zip(*all_corners)))
+max_corner = Vector(map(max, zip(*all_corners)))
+center = (min_corner + max_corner) / 2
+
+# Move all meshes so their center is at origin
+for obj in mesh_objects:
+    obj.location -= center
+
+# Add sun light at (0, 0, 20)
+light_data = bpy.data.lights.new(name="Sun", type='SUN')
+light_object = bpy.data.objects.new(name="Sun", object_data=light_data)
+bpy.context.collection.objects.link(light_object)
+sun_direction = Vector((0, 1, 0))  
+
+# Add camera
+camera_object = bpy.data.objects.new("Camera", bpy.data.cameras.new("Camera"))
+camera_object.data.type = 'ORTHO'
+bpy.context.collection.objects.link(camera_object)
+bpy.context.scene.camera = camera_object
+
+# Set camera position at specified distance
+observer_direction = Vector((0, 1, 1)).normalized()
+camera_object.data.ortho_scale = np.max(max_corner - min_corner)
+camera_object.location = observer_direction * camera_object.data.ortho_scale
+print(f"Ortho scale set to: {camera_object.data.ortho_scale}")
+
+
+# Point camera at geometric center (which is now at origin)
+direction = Vector((0, 0, 0)) - camera_object.location
+camera_object.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler() #-Z is the cameras conventional 'look direction' point that toward origin
+
+# Set resolution
 scene = bpy.context.scene
+scene.render.resolution_x = resolution_X
+scene.render.resolution_y = resolution_Y
 
-# Import Starlink satellite
-print(f"Loading: {OBJ_FILE_PATH}")
-try:
-    bpy.ops.import_scene.obj(filepath=OBJ_FILE_PATH)
-    print("  ✓ Satellite loaded")
-except Exception as e:
-    print(f"  ✗ Error loading .obj file: {e}")
-    print("  Please update OBJ_FILE_PATH in the script")
-    exit(1)
 
-# Get the imported satellite object
-satellite = bpy.context.selected_objects[0]
-satellite.location = (0, 0, 0)  # Center at origin
-print(f"  Satellite: {satellite.name}")
-print(f"  Vertices: {len(satellite.data.vertices)}")
-print(f"  Faces: {len(satellite.data.polygons)}")
+print(f"\nCamera configuration:")
+print(f"Camera position: {camera_object.location}")
+print(f"Camera distance: {CAMERA_DISTANCE}")
+print(f"Resolution: {resolution_X}x{resolution_Y}")
 
-# ============================================================================
-# CAMERA AND LIGHTING SETUP
-# ============================================================================
+# Lambertian BRDF
+def lambertian_brdf(normal, light_dir, view_dir, albedo = 1):
+    """Lambertian shading"""
+    n_dot_l = max(0, np.dot(normal, light_dir))
+    return albedo / np.pi * n_dot_l
 
-# Camera position (observer on Earth looking up)
-camera_pos = np.array([0.0, 0.0, 20.0])  # 10 units away
+def cook_torrance_brdf(normal, light_dir, view_dir, albedo=1, roughness=0, metallic=0.1):
+    """Cook-Torrance microfacet BRDF - more realistic for metals/glossy surfaces"""
+    # Convert to numpy arrays
+    normal = np.array(normal)
+    light_dir = np.array(light_dir)
+    view_dir = np.array(view_dir)
+    
+    n_dot_l = max(0.001, np.dot(normal, light_dir))
+    n_dot_v = max(0.001, np.dot(normal, view_dir))
+    
+    # Halfway vector
+    halfway = (light_dir + view_dir)  # Now both are numpy arrays
+    halfway = halfway / np.linalg.norm(halfway)
+    n_dot_h = max(0, np.dot(normal, halfway))
+    v_dot_h = max(0.001, np.dot(view_dir, halfway))
+    
+    # Fresnel (Schlick approximation)
+    F0 = 0.04 * (1 - metallic) + albedo * metallic
+    fresnel = F0 + (1 - F0) * (1 - v_dot_h) ** 5
+    
+    # GGX/Trowbridge-Reitz distribution
+    alpha = roughness * roughness
+    alpha2 = alpha * alpha
+    denom = n_dot_h * n_dot_h * (alpha2 - 1) + 1
+    D = alpha2 / (np.pi * denom * denom + 1e-10)  # Added epsilon for stability
+    
+    # Geometry term (Smith)
+    def G1(n_dot_x):
+        k = alpha / 2
+        return n_dot_x / (n_dot_x * (1 - k) + k + 1e-10)  # Added epsilon
+    
+    G = G1(n_dot_l) * G1(n_dot_v)
+    
+    # Specular term
+    specular = (D * G * fresnel) / (4 * n_dot_l * n_dot_v + 1e-10)  # Added epsilon
+    
+    # Diffuse term (with energy conservation)
+    diffuse = (1 - fresnel) * (1 - metallic) * albedo / np.pi * n_dot_l
+    
+    return diffuse + specular
 
-# Sun direction (example - would come from your geometry module)
-sun_direction = np.array([-0.5, 0.3, -0.8])
-sun_direction = sun_direction / np.linalg.norm(sun_direction)
+def phong_brdf(normal, light_dir, view_dir, albedo=1, specular=0.8, shininess=32):
+    """Phong shading with diffuse + specular components"""
+    # Diffuse component
+    n_dot_l = max(0, np.dot(normal, light_dir))
+    diffuse = albedo / np.pi * n_dot_l
+    
+    # Specular component (Phong)
+    reflect_dir = 2 * n_dot_l * normal - light_dir
+    spec_angle = max(0, np.dot(reflect_dir, view_dir))
+    specular_component = specular * (shininess + 2) / (2 * np.pi) * (spec_angle ** shininess)
+    
+    return diffuse + specular_component
 
-print(f"\nCamera position: {camera_pos}")
-print(f"Sun direction: {sun_direction}")
-
-# Get depsgraph for ray casting
+# Ray casting setup
 depsgraph = bpy.context.evaluated_depsgraph_get()
+width = scene.render.resolution_x
+height = scene.render.resolution_y
 
-# ============================================================================
-# TEST 1: Single ray through center
-# ============================================================================
-
-print("\n" + "="*70)
-print("TEST 1: Single ray toward satellite center")
-print("="*70)
-
-ray_origin = camera_pos
-ray_direction = -camera_pos / np.linalg.norm(camera_pos)  # Toward origin
-
-print(f"Ray origin: {ray_origin}")
-print(f"Ray direction: {ray_direction}")
-
-result, location, normal, index, obj, matrix = scene.ray_cast(
-    depsgraph,
-    ray_origin,
-    ray_direction
-)
-
-if result:
-    print(f"\n✓ HIT!")
-    print(f"  Hit location: {np.array(location)}")
-    print(f"  Hit normal: {np.array(normal)}")
-    print(f"  Hit object: {obj.name}")
-    print(f"  Face index: {index}")
-    
-    # Check if this point is illuminated
-    hit_point = np.array(location)
-    hit_normal = np.array(normal)
-    
-    # Cast shadow ray
-    shadow_origin = hit_point + hit_normal * 0.001
-    shadow_result, _, _, _, shadow_obj, _ = scene.ray_cast(
-        depsgraph,
-        shadow_origin,
-        sun_direction
-    )
-    
-    if shadow_result:
-        print(f"\n  ✗ Point is in SHADOW (blocked by {shadow_obj.name})")
-        print(f"    This demonstrates self-shadowing!")
-    else:
-        print(f"\n  ✓ Point is ILLUMINATED by sun")
-        
-        # Calculate BRDF
-        view_dir = -ray_direction
-        intensity = simple_lambertian_brdf(hit_normal, sun_direction, view_dir)
-        print(f"    BRDF intensity: {intensity:.3f}")
-else:
-    print("\n✗ MISS - ray didn't hit satellite")
-
-# ============================================================================
-# TEST 2: Grid of rays (low resolution render)
-# ============================================================================
-
-print("\n" + "="*70)
-print("TEST 2: Low resolution render (10x10 pixels)")
-print("="*70)
-
-width, height = 500, 250
-focal_length = 0.5
+# Initialize image array
 image = np.zeros((height, width))
 
 hit_count = 0
 shadow_count = 0
 
-print(f"\nCasting {width*height} rays...")
+print(f"\nStarting ray cast for {width}x{height} pixels...")
 
-for y in range(height):
+# Get camera matrix for transforming rays
+cam_matrix = camera_object.matrix_world
+
+# Create ray direction in camera space
+aspect_ratio_render = width / height
+
+# Calculate camera pixel size
+pixel_size_x = camera_object.data.ortho_scale / resolution_X
+pixel_size_y = camera_object.data.ortho_scale / aspect_ratio_render / resolution_Y
+pixel_area = pixel_size_x * pixel_size_y
+
+projected_areas = []
+
+distance_to_observer = 550e6
+
+ray_dir_world = (cam_matrix @ Vector((0, 0, -1)) - cam_matrix @ Vector((0, 0, 0))).normalized()
+ray_dir = np.array(ray_dir_world)
+
+# Ray cast for each pixel
+for y in tqdm(range(height)):
     for x in range(width):
-        # Calculate ray for this pixel
-        screen_x = (x - width/2) / width
-        screen_y = (y - height/2) / height
+        # Calculate ray for this pixel in normalised coordinates
+        screen_x = (2.0 * x / width) - 1.0
+        screen_y = 1.0 - (2.0 * y / height)  # Flipped Y axis
         
-        ray_dir = np.array([screen_x, screen_y, -1.0])
-        ray_dir = ray_dir / np.linalg.norm(ray_dir)
+        # Ray direction in camera to scale to local coordinates
+        ray_origin_cam = Vector((
+            screen_x * (camera_object.data.ortho_scale / 2) ,
+            screen_y * (camera_object.data.ortho_scale / 2) / aspect_ratio_render,
+            0.0
+        ))
         
-        # Cast ray
-        result, location, normal, index, obj, matrix = scene.ray_cast(
+        ray_origin_world = cam_matrix @ ray_origin_cam
+        
+        result, location, normal, index, obj_hit, matrix = scene.ray_cast(
             depsgraph,
-            camera_pos,
-            ray_dir
+            ray_origin_world,
+            ray_dir            
         )
         
         if result:
@@ -167,101 +201,44 @@ for y in range(height):
             
             # Check shadow
             shadow_origin = hit_point + hit_normal * 0.001
-            shadow_result, _, _, _, _, _ = scene.ray_cast(
+            shadow_result, *_ = scene.ray_cast(
                 depsgraph,
                 shadow_origin,
                 sun_direction
             )
             
             if shadow_result:
-                # In shadow
                 shadow_count += 1
-                intensity = 0.0  # or use ambient
+                flux = 0 
             else:
-                # Illuminated - apply BRDF
                 view_dir = -ray_dir
-                intensity = simple_lambertian_brdf(hit_normal, sun_direction, view_dir)
+                print(obj_hit)
+                brdf = lambertian_brdf(hit_normal, sun_direction, view_dir)
+                radiance = brdf * 1360
+
+                # Calculated projected area
+                cos_theta = max(0,np.dot(hit_normal, view_dir))
+
+                projected_area = pixel_area * cos_theta  
+                projected_areas.append(projected_area)   
+
+                flux = radiance * projected_area / distance_to_observer**2            
             
-            image[y, x] = intensity
+            image[y, x] = flux
 
-# Results
-total_flux = np.sum(image)
+#I think it's nearly there, lets try simulation of a pass
+print("\nRay casting complete!")
+print(f"For orthographic scale of {camera_object.data.ortho_scale}")
+print(f"Total measured Intensity: {np.sum(image):.2e} W")
+print(f"Total percieved area: {np.sum(projected_areas):.4e} m^2")
+print(f"Total hits: {hit_count} out of {width * height} pixels")
+print(f"Pixels in shadow: {shadow_count}")
+print(f"Hit percentage: {100 * hit_count / (width * height):.2f}%")
 
-print(f"\nResults:")
-print(f"  Total rays cast: {width*height}")
-print(f"  Rays that hit satellite: {hit_count}")
-print(f"  Hit rate: {100*hit_count/(width*height):.1f}%")
-print(f"  Points in shadow: {shadow_count}")
-print(f"  Shadow rate: {100*shadow_count/max(hit_count,1):.1f}% of hits")
-print(f"\n  Total integrated flux: {total_flux:.3f}")
-print(f"  --> This is ONE point on your light curve")
-
-# ============================================================================
-# TEST 3: Visualize which parts are visible and lit
-# ============================================================================
-
-print("\n" + "="*70)
-print("TEST 3: Sample different viewing angles")
-print("="*70)
-
-# Test from different angles
-test_angles = [
-    ("Front", np.array([0, 0, 10])),
-    ("Side", np.array([10, 0, 0])),
-    ("Above", np.array([0, 10, 0])),
-    ("Angled", np.array([5, 5, 5])),
-]
-
-for name, cam_pos in test_angles:
-    # Ray toward satellite center
-    ray_dir = -cam_pos / np.linalg.norm(cam_pos)
-    
-    result, location, normal, _, _, _ = scene.ray_cast(
-        depsgraph,
-        cam_pos,
-        ray_dir
-    )
-    
-    if result:
-        hit_normal = np.array(normal)
-        cos_angle = np.dot(sun_direction, hit_normal)
-        print(f"{name:10s}: Hit, cos(sun angle) = {cos_angle:+.3f}", end="")
-        
-        if cos_angle > 0:
-            print(" (illuminated)")
-        else:
-            print(" (facing away from sun)")
-    else:
-        print(f"{name:10s}: Miss")
-
-# ============================================================================
-# SUMMARY
-# ============================================================================
-
-print("\n" + "="*70)
-print("SUMMARY - WORKFLOW FOR LIGHT CURVE GENERATION")
-print("="*70)
-print("""
-1. Load satellite .obj file (DONE ✓)
-2. For each time step in satellite pass:
-   a. Get viewing geometry from your geometry.py module
-   b. Position camera using observer→satellite vector
-   c. Set sun direction from geometry
-   d. Render:
-      - Loop over all pixels (e.g., 500×500)
-      - Cast ray for each pixel
-      - If hit:
-        * Check shadow ray
-        * Apply your BRDF
-        * Store intensity
-   e. Sum all pixels = total flux
-   f. Store (time, flux) pair
-3. Plot flux vs time = light curve
-
-NEXT STEPS:
-- Integrate with your geometry.py module for real orbital positions
-- Implement your spectral BRDF function
-- Loop over time range for complete light curve
-""")
-
-print("="*70)
+# Save or display the image
+plt.figure(figsize=(8, 8 * height / width))
+plt.imshow(image, cmap='gray', origin='upper')
+plt.colorbar()
+plt.title('Rendered Image')
+plt.show()
+''''''

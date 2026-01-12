@@ -109,13 +109,13 @@ class Renderer:
         self.pixel_size_y = self.ortho_scale / self.aspect_ratio / self.resolution_y 
         self.pixel_area = self.pixel_size_x * self.pixel_size_y
 
-        print(f"\nCamera configuration:")
+        '''print(f"\nCamera configuration:")
         print(f"Camera position: ({self.camera_object.location.x:.3g}, {self.camera_object.location.y:.3g}, {self.camera_object.location.z:.3g}) m")
         print(f"Camera distance: {self.camera_object.location.magnitude:.3g} m ")
         print(f"Resolution: {self.resolution_x} x {self.resolution_y}")
         print(f"Field size: {self.ortho_scale:.3g} x {self.ortho_scale / self.aspect_ratio:.3g} m")
         print(f"Pixel size: {self.pixel_size_x:.3g} x {self.pixel_size_y:.3g} m")
-        print(f"Pixel area: {self.pixel_area:.3g} m²")
+        print(f"Pixel area: {self.pixel_area:.3g} m²")'''
 
 
 
@@ -193,10 +193,10 @@ class Renderer:
 
 if __name__ == '__main__':
     obj_path = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/data/models/Starlink/starlink_HR/uploads_files_3710445_SpaceXStarlinkSatelliteHighRes.obj/SpaceXStarlinkSatelliteHighRes.obj'
-    sun_direction = Vector((0, 10, 0)).normalized()
-    camera_direction = Vector((0, 1, 1)).normalized()
+    sun_direction = Vector((1, 1, 0)).normalized()
+    observer_direction = Vector((0, 1, 1)).normalized()
 
-    scene = Renderer(obj_path, sun_direction, camera_direction, 550e3)
+    scene = Renderer(obj_path, sun_direction, observer_direction, 550e3)
     scene.initialise_scene()
     image = scene.render()
 
@@ -208,5 +208,24 @@ if __name__ == '__main__':
 
     print("\nRay casting complete!")
     print(f"Total measured Intensity: {np.sum(image):.2e} W")
+
+    X = np.linspace(-1,1,10)
+    Y = np.linspace(-1,1,10)
+    Z = 0
+
+    output_intensity = []
+
+    for i in X:
+        for j in Y:
+            observer_direction = Vector((i, j, Z)).normalized()
+
+            scene = Renderer(obj_path, sun_direction, observer_direction, 550e3)
+            scene.initialise_scene()
+            image = scene.render()
+
+            output_intensity.append(np.sum(image))
+
+    
+
 
 
