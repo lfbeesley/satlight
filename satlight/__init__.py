@@ -1,11 +1,12 @@
 """
-Satlight - Satellite lightcurve modeling using Blender raytracing
+Satlight - Satellite lightcurve modelling using Blender raytracing
 """
 
 __version__ = "0.1.0"
 
-from .raytracer import Renderer
-from .geometry import Geometry
+from .raytracer import *
+from .brdf import *
+from .geometry import *
+from .tools import *
 
-__all__ = ['Renderer', 'Geometry']
 
