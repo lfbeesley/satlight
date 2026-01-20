@@ -2,8 +2,8 @@ import bpy
 import numpy as np
 from mathutils import Vector
 import matplotlib.pyplot as plt
+import tools
 from tqdm import tqdm
-import BRDF
 from hide_warnings import hide_warnings
 
 def lambertian_brdf(normal, light_dir, view_dir, albedo = 1):
@@ -14,7 +14,7 @@ def lambertian_brdf(normal, light_dir, view_dir, albedo = 1):
 class Renderer:
     """ To manage and render the object in blender and perform the ray-casting."""
 
-    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,750), solar_constant = 1360):
+    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,750), solar_constant = 500):
         '''
         obj_path can be either .obj or .stl
         distance_to_observer in km
@@ -27,7 +27,7 @@ class Renderer:
         self.resolution_x, self.resolution_y = resolution
         self.aspect_ratio = self.resolution_x / self.resolution_y # width / height
         self.solar_constant = solar_constant # in W
-        self.distance_to_observer = distance_to_observer * 1e3 # in m
+        self.distance_to_observer = distance_to_observer # in m
         self.sun_direction = sun_direction # may need to change to Vector(sun_direction) depending on geometry output
         self.observer_direction = observer_direction
 
@@ -37,9 +37,6 @@ class Renderer:
 
         # Add/center object and return orth_scale
         self.ortho_scale = self._load_and_center_object(self.obj_path) # 1.1 for 10% padding
-        
-        # Add lighting
-        self.add_light()
 
         # Add camera
         self.add_camera()
@@ -80,13 +77,6 @@ class Renderer:
         
         return ortho_scale
 
-    def add_light(self):
-        # Add sun light at sun direction
-        light_data = bpy.data.lights.new(name="Sun", type='SUN')
-        light_object = bpy.data.objects.new(name="Sun", object_data=light_data)
-        bpy.context.collection.objects.link(light_object)
-        #CHECK SUN DIRECTION
-
 
     def add_camera(self):
         self.camera_object = bpy.data.objects.new("Camera", bpy.data.cameras.new("Camera"))
@@ -109,34 +99,21 @@ class Renderer:
         self.pixel_size_y = self.ortho_scale / self.aspect_ratio / self.resolution_y 
         self.pixel_area = self.pixel_size_x * self.pixel_size_y
 
-        '''print(f"\nCamera configuration:")
-        print(f"Camera position: ({self.camera_object.location.x:.3g}, {self.camera_object.location.y:.3g}, {self.camera_object.location.z:.3g}) m")
-        print(f"Camera distance: {self.camera_object.location.magnitude:.3g} m ")
-        print(f"Resolution: {self.resolution_x} x {self.resolution_y}")
-        print(f"Field size: {self.ortho_scale:.3g} x {self.ortho_scale / self.aspect_ratio:.3g} m")
-        print(f"Pixel size: {self.pixel_size_x:.3g} x {self.pixel_size_y:.3g} m")
-        print(f"Pixel area: {self.pixel_area:.3g} m²")'''
-
-
-
 
     def render(self):
         print(f"\nStarting ray cast for {self.resolution_x}x{self.resolution_y} pixels...")
 
         # Ray casting setup
         self.scene = bpy.context.scene
-        self.scene.render.resolution_x = self.resolution_x
-        self.scene.render.resolution_y = self.resolution_y
         self.depsgraph = bpy.context.evaluated_depsgraph_get()
 
         # Get camera matrix for transforming rays
         cam_matrix = self.camera_object.matrix_world
-
-        ray_dir_world = (cam_matrix @ Vector((0, 0, -1)) - cam_matrix @ Vector((0, 0, 0))).normalized()
+        ray_dir_world = p(cam_matrix @ Vector((0, 0, -1)) - cam_matrix @ Vector((0, 0, 0))).normalized()
         ray_dir = np.array(ray_dir_world)
         
         # Output
-        image = np.zeros((self.resolution_y, self.resolution_x))
+        self.image = np.zeros((self.resolution_y, self.resolution_x))
         projected_areas = []
         self.hit_count = 0
         self.shadow_count = 0
@@ -165,7 +142,7 @@ class Renderer:
                     hit_normal = np.array(normal)
                     
                     # Check shadow
-                    shadow_origin = hit_point + hit_normal * 0.001
+                    shadow_origin = hit_point + hit_normal * 1e-4  # Small epsilon offset
                     shadow_result, *_ = self.scene.ray_cast(self.depsgraph, shadow_origin, self.sun_direction)
                     
                     if shadow_result:
@@ -174,24 +151,21 @@ class Renderer:
                     else:
                         view_dir = -ray_dir
                         brdf = lambertian_brdf(hit_normal, self.sun_direction, view_dir)
-                        radiance = brdf * 1360
+                        radiance = brdf * self.solar_constant
 
                         # Calculated projected area
                         cos_theta = max(0,np.dot(hit_normal, view_dir))
 
-                        projected_area = self.pixel_area * cos_theta  
-                        projected_areas.append(projected_area)   
+                        self.projected_area = self.pixel_area * cos_theta  
+                        projected_areas.append(self.projected_area)   
 
-                        flux = radiance * projected_area / self.distance_to_observer**2            
+                        flux = radiance * self.projected_area / self.distance_to_observer ** 2
                     
-                    image[y, x] = flux
-        return image
+                    self.image[y, x] = flux
+        return self.image
+    
 
-
-            
-
-
-if __name__ == '__main__':
+if __name__ == '__main__':  
     obj_path = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/data/models/Starlink/starlink_HR/uploads_files_3710445_SpaceXStarlinkSatelliteHighRes.obj/SpaceXStarlinkSatelliteHighRes.obj'
     sun_direction = Vector((1, 1, 0)).normalized()
     observer_direction = Vector((0, 1, 1)).normalized()
@@ -199,9 +173,9 @@ if __name__ == '__main__':
     scene = Renderer(obj_path, sun_direction, observer_direction, 550e3)
     scene.initialise_scene()
     image = scene.render()
-
+  
     plt.figure(figsize=(8, 8 * scene.resolution_y / scene.resolution_x))
-    plt.imshow(image, cmap='gray', origin='upper')
+    plt.imshow(image, origin='upper')
     plt.colorbar()
     plt.title('Rendered Image')
     plt.show()
@@ -209,23 +183,18 @@ if __name__ == '__main__':
     print("\nRay casting complete!")
     print(f"Total measured Intensity: {np.sum(image):.2e} W")
 
-    X = np.linspace(-1,1,10)
-    Y = np.linspace(-1,1,10)
-    Z = 0
+    j = np.linspace(0, 0.75, 20)
+    AB_mags = []
+    imgs = []
 
-    output_intensity = []
+    for i in j:
+        observer_direction = Vector((0, i, 1)).normalized()
 
-    for i in X:
-        for j in Y:
-            observer_direction = Vector((i, j, Z)).normalized()
+        scene = Renderer(obj_path, sun_direction, observer_direction, 550e3)
+        scene.initialise_scene()
+        image = scene.render()
+        imgs.append(image)
 
-            scene = Renderer(obj_path, sun_direction, observer_direction, 550e3)
-            scene.initialise_scene()
-            image = scene.render()
-
-            output_intensity.append(np.sum(image))
+        AB_mags.append(tools.AB_mag(np.sum(image)))
 
     
-
-
-

@@ -10,3 +10,5 @@ __pycache__/
 __pycache__/
 *.pyc
 .vscode/
+data/BRDFDatabase/
+data/models/
