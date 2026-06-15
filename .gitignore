@@ -12,3 +12,36 @@ __pycache__/
 .vscode/
 data/BRDFDatabase/
 data/models/
+dist/
+output/
+*.egg-info/
+__pycache__/
+*.pyc
+.DS_Store
+dist/
+output/
+*.egg-info/
+__pycache__/
+*.pyc
+.DS_Store
+models/Starlink/
+models/Intelsat 1R/
+models/Falcon9 RB model/
+dist/
+output/
+*.egg-info/
+__pycache__/
+*.pyc
+.DS_Store
+models/Starlink/
+models/Intelsat 1R/
+models/Falcon9 RB model/
+dist/
+output/
+*.egg-info/
+__pycache__/
+*.pyc
+.DS_Store
+models/Starlink/
+models/Intelsat 1R/
+models/Falcon9 RB model/

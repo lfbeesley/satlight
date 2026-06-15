@@ -9,13 +9,13 @@ def AB_mag(I):
     """
 
     # for V-band
-    lambda_1 = 500e-9 
-    lambda_2 = 600e-9  
+    wvl_1 = 500e-9 
+    wvl_2 = 600e-9  
     
     # Convert wavelength range to frequency range
     c = 3e8
-    nu_1 = c / lambda_2
-    nu_2 = c / lambda_1
+    nu_1 = c / wvl_2
+    nu_2 = c / wvl_1
     delta_nu = nu_2 - nu_1 
 
     # Calc AB_magnitude

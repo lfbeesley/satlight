@@ -1,18 +1,35 @@
 [project]
-name = "satLight"
-version = "0.1x.0"
+name = "satlight"
+version = "0.1.0a1"
 authors = [
   { name = "L Beesley", email = "l.beesley@bham.ac.uk" },
-  { name = "G Jones", email = "gxj236@student.bham.ac.uk"},
 ]
-description = "A package to produce high fidelity lightcurves"
+description = "A package to produce high fidelity RSO lightcurves"
 requires-python = ">=3.9"
 readme = "README.md"
 
+dependencies = [
+  "numpy",
+  "matplotlib",
+  "astropy",
+  "skyfield",
+  "trimesh",
+  "tqdm",
+  "plotly",
+  "xarray",
+  "netCDF4",
+]
+
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-
 [tool.setuptools.packages.find]
-include = ["satlight"]
+where = ["."]
+include = ["satlight*"]
+
+[tool.setuptools.package-data]
+satlight = [
+  "data/ler555nm/*.dat",
+  "data/ceres_albedo_monthly.npy",
+]

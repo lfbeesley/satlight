@@ -1,11 +1,17 @@
 import numpy as np
-from skyfield.api import load, wgs84, EarthSatellite
-from datetime import timedelta
+import os
+import datetime
+from skyfield.api import Loader, wgs84, EarthSatellite
+from sgp4.api import Satrec, WGS84 as WGS84_gravity
 from astropy.constants import R_sun, R_earth, au
 from astropy import units as u
-from astropy.time import Time, TimeDelta
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+
+# store de421.bsp in users local dir
+_data_dir = os.path.join(os.path.expanduser('~'), '.satlight')
+os.makedirs(_data_dir, exist_ok=True)
+load = Loader(_data_dir)
 
 # Constants
 R_earth = R_earth.to(u.km).value
@@ -180,11 +186,16 @@ class Geometry():
         self.zenith = -radial       # Z-axis (away from Earth)
 
         # Rotate 
-        R = np.stack([along_track, orbit_normal, -radial],axis=1)
-
-        # Transform vectors 
-        self.incident_vector_lvlh = np.einsum('ijn,jn->in', R, self.incident_vector)
-        self.outgoing_vector_lvlh = np.einsum('ijn,jn->in', R, self.outgoing_vector)
+        if sat_pos.ndim == 1:
+            # Single time: R is (3,3), vectors are (3,)
+            R = np.stack([along_track, orbit_normal, -radial], axis=1)
+            self.incident_vector_lvlh = R.T @ self.incident_vector
+            self.outgoing_vector_lvlh = R.T @ self.outgoing_vector
+        else:
+            # Array time: R is (3,3,N), vectors are (3,N)
+            R = np.stack([along_track, orbit_normal, -radial], axis=1)
+            self.incident_vector_lvlh = np.einsum('ijn,jn->in', R, self.incident_vector)
+            self.outgoing_vector_lvlh = np.einsum('ijn,jn->in', R, self.outgoing_vector)
         
 
     def _calculate_solar_phase_angle(self):
@@ -234,9 +245,9 @@ class Geometry():
             r2 = theta_earth
             d = theta[mask]
 
-            phi1 = np.arccos((d**2 + r1**2 - r2**2) / (2 * d * r1))
-            phi2 = np.arccos((d**2 + r2**2 - r1**2) / (2 * d * r2))
-            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2))
+            phi1 = np.arccos(np.clip((d**2 + r1**2 - r2**2) / (2 * d * r1), -1, 1))
+            phi2 = np.arccos(np.clip((d**2 + r2**2 - r1**2) / (2 * d * r2), -1, 1))
+            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt(np.clip((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2), 0, None))
             f[mask] = 1 - A / (np.pi * r1**2)
         
         else:
@@ -244,95 +255,48 @@ class Geometry():
             r2 = theta_earth
             d = theta
 
-            phi1 = np.arccos((d**2 + r1**2 - r2**2) / (2 * d * r1))
-            phi2 = np.arccos((d**2 + r2**2 - r1**2) / (2 * d * r2))
-            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2))
+            phi1 = np.arccos(np.clip((d**2 + r1**2 - r2**2) / (2 * d * r1), -1, 1))
+            phi2 = np.arccos(np.clip((d**2 + r2**2 - r1**2) / (2 * d * r2), -1, 1))
+            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt(np.clip((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2), 0, None))
             f = 1 - A / (np.pi * r1**2)
 
         return f  
 
+    def create_satellite_from_elements(self, a_km, e, i_deg, raan_deg,
+                                        argp_deg, nu_deg, epoch=None):
+        if epoch is None:
+            epoch = datetime.datetime.utcnow()
 
+        # True anomaly -> mean anomaly
+        nu = np.radians(nu_deg)
+        E  = 2 * np.arctan2(np.sqrt(1 - e) * np.sin(nu / 2),
+                            np.sqrt(1 + e) * np.cos(nu / 2))
+        M  = (E - e * np.sin(E)) % (2 * np.pi)
 
-if __name__ == '__main__':
-    print("="*50)
-    print("SATELLITE GEOMETRY TEST - TIME SERIES")
-    print("="*50)
-    
-    # Test parameters
-    line1 = '1 55341U 23013L   25094.09942582  .00001345  00000-0  11466-3 0 9990'
-    line2 = '2 55341  43.0031 345.7949 0001445 255.2239 104.8444 15.02528780121056'
-    time_utc = (2025, 5, 4, 0, 25, range(0,60))  # 60 seconds
-    observer_lat = 28.29156
-    observer_lon = -16.62
-    observer_alt_m = 2070
-    
-    print(f"Satellite TLE: {line1[2:7]} ({line1[18:32].strip()})")
-    print(f"Observer: {observer_lat:.4f}°, {observer_lon:.4f}°, {observer_alt_m}m")
-    print(f"Time range: 60 seconds starting from {time_utc[:5]}...")
-    print()
-    
-    # Create geometry object
-    print("Creating geometry calculator...")
-    geometry = Geometry()
-    
-    # Set up scene
-    print("Setting up observation scenario...")
-    geometry.create_observer(observer_lat, observer_lon, observer_alt_m)
-    geometry.create_satellite(line1, line2)
-    geometry.set_time(time_utc)
+        # Mean motion in rad/s
+        GM = 398600.4418
+        n  = np.sqrt(GM / a_km**3)
 
-    # Check Satellite is visibile:
-    print("\n" + "-"*40)
-    print("OBSERVATION TIMES")
-    print("-"*40)
-    t = geometry.next_visibility((2025, 5, 4, 22, 30))
-    for tup in t:
-        year, month, day, hour, minute, r = tup
-        duration = r.stop - r.start  # extract from range
-        print(f"Observable above 30° from ({year}, {month}, {day}, {hour}, {minute}, {r.start}) "
-            f"for {duration} seconds.")
-        
-    # Print vector shapes and sample values
-    print("\n" + "-"*40)
-    print("VECTOR ARRAY SHAPES & SAMPLE VALUES")
-    print("-"*40)
-    print(f"Distance array shape: {geometry.prop_distance.shape}")
-    print(f"Phase angle array shape: {geometry.phase_angle.shape}")
-    print(f"Reference frame shapes:")
-    print(f"  Nadir: {geometry.nadir.shape}")
-    print(f"  Along-track: {geometry.along_track.shape}")
-    print(f"  Cross-track: {geometry.cross_track.shape}")
+        # SGP4 epoch: days from 1949-12-31 00:00:00 UTC
+        epoch_base = datetime.datetime(1949, 12, 31, 0, 0, 0)
+        epoch_days = (epoch - epoch_base).total_seconds() / 86400.0
 
-    # Extract positions from geometry
-    sat = geometry.positions['satellite']
-    obs = geometry.positions['observer']
+        satrec = Satrec()
+        satrec.sgp4init(
+            WGS84_gravity,
+            'i',
+            99999,
+            (epoch - datetime.datetime(1949, 12, 31, 0, 0, 0)).total_seconds() / 86400.0,
+            0.0,   # bstar
+            0.0,   # ndot
+            0.0,   # nddot
+            e,
+            np.radians(argp_deg),
+            np.radians(i_deg),
+            M,
+            n * 60, # rad/min 
+            np.radians(raan_deg),
+        )
 
-    # Earth parameters
-    ui = np.linspace(0, 2 * np.pi, 100)
-    v = np.linspace(0, np.pi, 100)
-    x_earth = R_earth * np.outer(np.cos(ui), np.sin(v))
-    y_earth = R_earth * np.outer(np.sin(ui), np.sin(v))
-    z_earth = R_earth * np.outer(np.ones_like(ui), np.cos(v))
-
-    # Create 3D figure
-    fig = plt.figure(figsize=(10,8))
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Plot Earth as a sphere
-    ax.plot_surface(x_earth, y_earth, z_earth, color='b', alpha=0.3, edgecolor='k')
-
-    # Plot satellite and observer
-    ax.plot(sat[0], sat[1], sat[2], label='Satellite', color='red', marker='o')
-    ax.plot(obs[0], obs[1], obs[2], label='Observer', color='green', marker='^')
-
-    # Labels and legend
-    ax.set_xlabel('X [km]')
-    ax.set_ylabel('Y [km]')
-    ax.set_zlabel('Z [km]')
-    ax.legend()
-    ax.set_title('Satellite and Observer with Earth Sphere')
-
-    # Make aspect ratio equal
-    ax.set_box_aspect([1,1,1])
-
-    plt.show()
+        self.satellite = EarthSatellite.from_satrec(satrec, self.ts)
+        return self.satellite
