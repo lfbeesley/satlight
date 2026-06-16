@@ -1,41 +1,52 @@
 import sys
-sys.path.insert(0, '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight')
-
+import bpy
 import numpy as np
-import csv
-import os
 import datetime
 import matplotlib.pyplot as plt
+from skyfield.api import Loader
+import os
 from mathutils import Vector
-from tqdm import tqdm
-
 from satlight.geometry import Geometry
 from satlight.raytracer import Renderer
+from tqdm import tqdm
+import csv 
 
-# =============================================================================
-# Configuration
-# =============================================================================
-
-obj_path         = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/models/Skynet 5D/skynet.obj'
-output_csv       = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/output/annual_lightcurve.csv'
-output_npy       = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/output/annual_lightcurve.npy'
+# Config
+obj_path = r'/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/models/Skynet 5D/skynet.obj'
+output_csv = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/output/annual_lightcurve.csv'
+output_npy = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/output/annual_lightcurve.npy'
 
 # Observer: Roque de los Muchachos, La Palma
-observer_lat     =  28.7622   # degrees N
-observer_lon     = -17.8897   # degrees E
-observer_alt_m   =  2396.0    # metres
+observer_lat    =  28.7622
+observer_lon    = -17.8897
+observer_alt_m  =  2396.0
 
-# GEO orbit: circular equatorial, satellite at 28 W
-geo_longitude    = -28.0      # degrees E
-geo_altitude_km  =  35786.0
-R_EARTH_KM       =  6371.0
-a_km             =  R_EARTH_KM + geo_altitude_km
+# GEO: circular equatorial at 28 W
+geo_longitude   = -28.0
+geo_altitude_km =  35786.0
+R_EARTH_KM      =  6371.0
+a_km            =  R_EARTH_KM + geo_altitude_km
 
-# Solar panel object names (from OBJ file)
+# deriving RAAN for GEO sat
+_data_dir = os.path.join(os.path.expanduser('~'), '.satlight')
+load = Loader(_data_dir)
+ts = load.timescale()
+
+def gmst_deg(t_utc):
+    """GMST in degrees at a given UTC datetime."""
+    t = ts.utc(t_utc.year, t_utc.month, t_utc.day,
+               t_utc.hour, t_utc.minute, t_utc.second)
+    return t.gast * 15.0  # gast is in hours, *15 -> degrees
+
+def geo_raan(target_lon_deg, t_utc):
+    """RAAN needed to place a GEO satellite at target geographic longitude."""
+    return (target_lon_deg + gmst_deg(t_utc)) % 360.0
+
+# Solar panel names
 solar_panel_names = ['solarPanel1', 'solarPanel2']
 
 # Observation schedule: 52 weeks, 8 hours per night, 10-min cadence
-start_date       = datetime.datetime(2025, 1, 7, 21, 0, 0)   # 21:00 UTC
+start_date       = datetime.datetime(2025, 1, 7, 21, 0, 0)  
 n_weeks          = 52
 obs_duration_h   = 8
 cadence_min      = 10
@@ -46,8 +57,7 @@ resolution       = (300, 300)
 solar_constant   = 1361.0     # W/m^2
 add_earthshine   = False
 
-# Magnitude zero-point: tune after first run so GEO flux -> ~12-14 mag
-mag_zeropoint    = 25.0
+mag_zeropoint    = -18
 
 # =============================================================================
 # Build time grid: 52 weeks x 8 hours x 10-min cadence
@@ -64,18 +74,17 @@ for week in range(n_weeks):
 
 print(f"Total timesteps: {len(time_grid)}")
 
-# =============================================================================
-# Initialise Blender scene with first-timestep geometry (one-time load)
-# =============================================================================
+# Set geometry
 
 t0_dt = time_grid[0][2]
 
 geom0 = Geometry()
 geom0.create_observer(observer_lat, observer_lon, observer_alt_m)
 geom0.create_satellite_from_elements(
-    a_km=a_km, e=0.0, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,
-    nu_deg=geo_longitude, epoch=t0_dt,
-)
+    a_km=a_km, e=0.0, i_deg=0.0,
+    raan_deg=geo_raan(geo_longitude, t_utc),
+    argp_deg=0.0, nu_deg=0.0, epoch=t_utc,)
+
 geom0.set_time((t0_dt.year, t0_dt.month, t0_dt.day,
                 t0_dt.hour, t0_dt.minute, t0_dt.second))
 
@@ -83,6 +92,8 @@ geom0.set_time((t0_dt.year, t0_dt.month, t0_dt.day,
 sun_lvlh_0 = -geom0.incident_vector_lvlh
 obs_lvlh_0 =  geom0.outgoing_vector_lvlh    # sat->observer
 dist_obs_0 = float(geom0.prop_distance) * 1e3   # m
+
+# Initialise Blender scene
 
 renderer = Renderer(
     obj_path             = obj_path,
@@ -96,9 +107,7 @@ renderer = Renderer(
 renderer.initialise_scene()
 print("Blender scene initialised.\n")
 
-# =============================================================================
-# Main loop
-# =============================================================================
+# Iterate over year
 
 records    = []
 n_rendered = 0

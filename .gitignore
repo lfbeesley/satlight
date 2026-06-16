@@ -45,3 +45,7 @@ __pycache__/
 models/Starlink/
 models/Intelsat 1R/
 models/Falcon9 RB model/
+output/*.csv
+output/*.npy
+output/*.png
+output/*.mp4
