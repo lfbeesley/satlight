@@ -20,7 +20,7 @@ def lambertian_brdf(normal, light_dir, view_dir, albedo = 1):
 class Renderer:
     """ To manage and render the object in blender and perform the ray-casting."""
 
-    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500),solar_constant = 1460, add_earthshine=False, rotation=(0, 0, 0)):
+    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500),solar_constant = 1460, add_earthshine=False):
         '''
         obj_path can be either .obj or .stl
         distance_to_observer in km
@@ -37,7 +37,6 @@ class Renderer:
         self.sun_direction = sun_direction # may need to change to Vector(sun_direction) depending on geometry output
         self.observer_direction = observer_direction
         self.nadir_direction = np.array([0., 0., -1.])
-        self.rotation = rotation
         self.earthshine_irradiance = 0.0
         self.add_earthshine = add_earthshine
 
@@ -87,10 +86,6 @@ class Renderer:
         # Move all meshes so their center is at origin
         for obj in mesh_objects:
             obj.location -= center
-            obj.rotation_euler = (np.radians(self.rotation[0]), 
-                          np.radians(self.rotation[1]), 
-                          np.radians(self.rotation[2]))
-
         
         return ortho_scale
 
@@ -116,6 +111,33 @@ class Renderer:
         self.pixel_size_y = self.ortho_scale / self.aspect_ratio / self.resolution_y 
         self.pixel_area = self.pixel_size_x * self.pixel_size_y
     
+    def get_projected_bbox_pixels(self):
+        """
+        Return pixel bounding box of the object as seen by the camera.
+        Only cast rays within this region — skips guaranteed misses.
+        """
+        bpy.context.view_layer.update()
+        mesh_objects = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+        
+        cam_matrix_inv = self.camera_object.matrix_world.inverted()
+        xs, ys = [], []
+        
+        for obj in mesh_objects:
+            for corner in obj.bound_box:
+                world_co  = obj.matrix_world @ Vector(corner)
+                cam_co    = cam_matrix_inv @ world_co
+                x_ndc     = cam_co.x / (self.ortho_scale / 2)
+                y_ndc     = cam_co.y / (self.ortho_scale / 2 / self.aspect_ratio)
+                xs.append(int((x_ndc + 1) / 2 * self.resolution_x))
+                ys.append(int((1 - y_ndc) / 2 * self.resolution_y))
+        
+        padding = 2
+        x_min = max(0,                 min(xs) - padding)
+        x_max = min(self.resolution_x, max(xs) + padding)
+        y_min = max(0,                 min(ys) - padding)
+        y_max = min(self.resolution_y, max(ys) + padding)
+        return x_min, x_max, y_min, y_max
+
     def preview_lvlh_views(self):
         """
         Load the mesh via trimesh and display an interactive 3D plotly plot
@@ -364,9 +386,20 @@ class Renderer:
         self.earthshine_irradiance = float(np.sum(dE))
         self.nadir_direction       = np.array([0., 0., -1.])  # fixed in LVLH
         print(f"Earthshine irradiance: {self.earthshine_irradiance:.4f} W/m²")
+
+    
+    def update(self, sun_direction, observer_direction, distance_to_observer):
+        """Update geometry for next timestep — call before render()."""
+        self.sun_direction        = sun_direction
+        self.observer_direction   = observer_direction
+        self.distance_to_observer = distance_to_observer
+
+        # Move camera to new observer position
+        self.camera_object.location = observer_direction.normalized() * self.ortho_scale
+        direction = Vector((0, 0, 0)) - self.camera_object.location
+        self.camera_object.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
         
     def render(self):
-
         # Ray casting setup
         self.scene = bpy.context.scene
         self.depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -382,9 +415,11 @@ class Renderer:
         self.hit_count = 0
         self.shadow_count = 0
 
-        # Ray cast for each pixel
-        for y in range(self.resolution_y):
-            for x in range(self.resolution_x):
+        x_min, x_max, y_min, y_max = self.get_projected_bbox_pixels()
+
+        # Cast rays only within bounding box
+        for y in range(y_min, y_max):
+            for x in range(x_min, x_max):
                 # Calculate ray for this pixel in normalised coordinates
                 screen_x = (2.0 * x / self.resolution_x) - 1.0
                 screen_y = 1.0 - (2.0 * y / self.resolution_y)  # Flipped Y axis
@@ -449,7 +484,7 @@ class Renderer:
 
 
 if __name__ == '__main__':
-    obj_path = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/data/models/reference/sphere.obj'
+    obj_path = '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight/models/reference/sphere.obj'
     sun_direction = Vector((1, 1, 0)).normalized()
     observer_direction = Vector((0, 1, 1)).normalized()
 
