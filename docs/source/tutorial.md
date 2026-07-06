@@ -15,10 +15,11 @@ is installed in your environment before continuing — see {ref}`installation`.
 (installation)=
 ## 1. Installation
 
-Install `satlight` and its dependencies:
+Install `satlight` and its dependencies. It's currently published as a
+**pre-release** (`0.1.0a1`), so pip needs the `--pre` flag to pick it up:
 
 ```bash
-pip install satlight
+pip install --pre satlight
 ```
 
 `satlight` depends on `bpy` for rendering, plus `numpy`, `astropy`, `skyfield`,
@@ -283,7 +284,7 @@ lightcurve.
   bus surfaces.
 - Enable earthshine contributions via the CERES-based albedo model for more
   realistic illumination near eclipse boundaries.
-- See the {doc}`api` reference for the full parameter list on `Geometry` and
+- See the {doc}`api` for the full parameter list on `Geometry` and
   `Renderer`.
 
 ```{seealso}
