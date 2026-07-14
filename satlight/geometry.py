@@ -61,52 +61,42 @@ class Geometry():
         self.time = self.ts.utc(*time_utc)  
         self._auto_calculate()
     
-    def next_visibility(self, t0_utc, N = 24, i = 30.0):
-        """Calculate the next times the object will be observable above i° within the following N hours.
-        Includes illumination and local daytime.
-
-        Args:
-            time_utc: Individual start time in (2025, 5, 4, 0, 44, 38) format.
-            N: Number of hours to search ahead (default: 24)
-            i: Minimum altitude in degrees (default: 30.0)
-        
-        Returns:
-            list of tuples, where:
-            Each tuple describes a satellite visibility window in the format:
-            (year, month, day, hour, minute, range(start_second, stop_second)).
-            """
-
+    def next_visibility(self, t0_utc, N=24, i=30.0):
+        """Calculate the next times the object will be observable above i° within the following N hours."""
         t0 = self.ts.utc(*t0_utc)
-        t1 = t0 +  datetime.timedelta(hours = N)
+        t1 = t0 + datetime.timedelta(hours=N)
 
-        t, events = self.satellite.find_events(self.observer, t0, t1, altitude_degrees= i)
-        
-        if len(events) > 0:
-            mask_rise = (events == 0)
-            mask_set = (events == 2)
+        # Check elevation at t0 itself, in case the satellite is already above threshold
+        alt0, _, _ = (self.satellite - self.observer).at(t0).altaz()
+        already_up = alt0.degrees >= i
 
-            t_rise = t[mask_rise] # Rising above threshold
-            t_set = t[mask_set]   # Setting below threshold
+        t, events = self.satellite.find_events(self.observer, t0, t1, altitude_degrees=i)
 
-            duration = (t_set - t_rise) * 86400.0 # To convert to seconds
-            
-            # Convert to (YYYY, MM, DD, hh, mm, ss)
-            years, months, days, hours, minutes, seconds = t_rise.utc
+        results = []
+        pending_rise = t0 if already_up else None
 
-            results = []
-            for i in range(len(years)):
-                start = int(seconds[i])
-                dur = int(duration[i])
-                tup = (
-                    int(years[i]),
-                    int(months[i]),
-                    int(days[i]),
-                    int(hours[i]),
-                    int(minutes[i]),
-                    range(start, start + dur)
-                )
-                results.append(tup)
+        for ti, ev in zip(t, events):
+            if ev == 0:  # rise
+                pending_rise = ti
+            elif ev == 2 and pending_rise is not None:  # set
+                duration = (ti - pending_rise) * 86400.0
+                y, mo, d, h, mi, s = pending_rise.utc
+                results.append((
+                    int(y), int(mo), int(d), int(h), int(mi),
+                    range(int(s), int(s + duration))
+                ))
+                pending_rise = None
 
+        # Pass still ongoing when the window closes
+        if pending_rise is not None:
+            duration = (t1 - pending_rise) * 86400.0
+            y, mo, d, h, mi, s = pending_rise.utc
+            results.append((
+                int(y), int(mo), int(d), int(h), int(mi),
+                range(int(s), int(s + duration))
+            ))
+
+        if results:
             return results
         else:
             print("Satellite is not observable during this period. Increase the search time or change observer location.")
