@@ -1,24 +1,27 @@
 [project]
 name = "satlight"
-version = "0.1.0a1"
+version = "0.1.0a2"
 authors = [
   { name = "L Beesley", email = "l.beesley@bham.ac.uk" },
 ]
 description = "A package to produce high fidelity RSO lightcurves"
-requires-python = ">=3.9"
+requires-python = ">=3.11,<3.12"
 readme = "README.md"
-
 dependencies = [
   "numpy",
   "matplotlib",
   "astropy",
   "skyfield",
+  "sgp4",
   "trimesh",
   "tqdm",
   "plotly",
   "xarray",
   "netCDF4",
 ]
+
+[project.optional-dependencies]
+render = ["bpy==4.2.0", "hide_warnings"]
 
 [build-system]
 requires = ["setuptools>=61"]
