@@ -77,7 +77,7 @@ class Geometry():
             """
 
         t0 = self.ts.utc(*t0_utc)
-        t1 = t0 + timedelta(hours = N)
+        t1 = t0 +  datetime.timedelta(hours = N)
 
         t, events = self.satellite.find_events(self.observer, t0, t1, altitude_degrees= i)
         
@@ -146,12 +146,12 @@ class Geometry():
         sun_pos = self.positions['sun']
         
         # Compute unit vectors and distances
-        self.incident_vector = (sat_pos - sun_pos) / np.linalg.norm(sat_pos - sun_pos, axis=0)
+        self.incident_vector = (sun_pos - sat_pos) / np.linalg.norm(sun_pos - sat_pos, axis=0)  # unit vector from satellite toward sun
         self.outgoing_vector = (obs_pos - sat_pos) / np.linalg.norm(obs_pos - sat_pos, axis=0)
         self.prop_distance = np.linalg.norm(obs_pos - sat_pos, axis=0)
 
         self.vectors = {
-            'sun_to_sat_unit': self.incident_vector,
+            'sat_to_sun_unit': self.incident_vector,
             'sat_to_obs_unit': self.outgoing_vector,
             'obs_to_sat_distance': self.prop_distance}
         
@@ -194,8 +194,8 @@ class Geometry():
         else:
             # Array time: R is (3,3,N), vectors are (3,N)
             R = np.stack([along_track, orbit_normal, -radial], axis=1)
-            self.incident_vector_lvlh = np.einsum('ijn,jn->in', R, self.incident_vector)
-            self.outgoing_vector_lvlh = np.einsum('ijn,jn->in', R, self.outgoing_vector)
+            self.incident_vector_lvlh = np.einsum('ijn,jn->in', R.transpose(1,0,2), self.incident_vector)
+            self.outgoing_vector_lvlh = np.einsum('ijn,jn->in', R.transpose(1,0,2), self.outgoing_vector)
         
 
     def _calculate_solar_phase_angle(self):
@@ -204,10 +204,9 @@ class Geometry():
         outgoing = self.outgoing_vector
         
         if incident.ndim == 1:
-            # Single time: regular dot product
             dot_product = np.dot(incident, outgoing)
         else:
-            # Array time: element-wise multiply then sum along vector dimension (axis=0)
+            # If time is array
             dot_product = np.sum(incident * outgoing, axis=0)
         
         self.phase_angle = np.arccos(np.clip(dot_product, -1.0, 1.0))
@@ -217,7 +216,7 @@ class Geometry():
         # Positions
         sat_pos = self.positions['satellite']
         earth_pos = self.positions['earth']
-
+        
         # Distances
         dist_sat_to_earth = np.linalg.norm(sat_pos - earth_pos, axis=0) # Distance from satellite to Earth
 
