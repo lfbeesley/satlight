@@ -1,6 +1,3 @@
-import sys
-sys.path.insert(0, '/Users/l.beesley@bham.ac.uk/Documents/Lightcurves/satlight')
-
 from importlib.resources import files
 import bpy
 import numpy as np
