@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-render = ["bpy==4.2.0", "hide_warnings"]
+render = ["bpy==4.2.0", "hide_warnings", "mathutils==3.3.0"]
 
 [build-system]
 requires = ["setuptools>=61"]
