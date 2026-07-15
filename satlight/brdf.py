@@ -1,11 +1,11 @@
 import numpy as np
 
-def lambertian_brdf(normal, light_dir, view_dir, albedo = 1):
+def lambertian(normal, light_dir, view_dir, albedo = 1):
     """Lambertian shading"""
     n_dot_l = max(0, np.dot(normal, light_dir))
     return albedo / np.pi * n_dot_l
 
-def phong_brdf(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shininess=32):
+def phong(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shininess=32):
     """Phong shading with diffuse + specular components"""
     # Diffuse component
     n_dot_l = max(0, np.dot(normal, light_dir))
@@ -18,7 +18,7 @@ def phong_brdf(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shininess=
     
     return diffuse + specular_component
 
-def blinn_phong_brdf(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shininess=32):
+def blinn_phong(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shininess=32):
     """Blinn-Phong shading"""
     # Diffuse
     n_dot_l = max(0, np.dot(normal, light_dir))
@@ -31,7 +31,7 @@ def blinn_phong_brdf(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shin
     
     return diffuse + specular_component
 
-def cook_torrance_brdf(normal, light_dir, view_dir, albedo=0.3, roughness=0.5, metallic=0.1):
+def cook_torrance(normal, light_dir, view_dir, albedo=0.3, roughness=0.5, metallic=0.1):
     """Cook-Torrance microfacet BRDF - more realistic for metals/glossy surfaces"""
     n_dot_l = max(0.001, np.dot(normal, light_dir))
     n_dot_v = max(0.001, np.dot(normal, view_dir))
@@ -66,7 +66,7 @@ def cook_torrance_brdf(normal, light_dir, view_dir, albedo=0.3, roughness=0.5, m
     
     return diffuse + specular
 
-def oren_nayar_brdf(normal, light_dir, view_dir, albedo=0.5, roughness=0.5):
+def oren_nayar(normal, light_dir, view_dir, albedo=0.5, roughness=0.5):
     """Oren-Nayar - accounts for surface roughness better than Lambertian"""
     n_dot_l = max(0, np.dot(normal, light_dir))
     n_dot_v = max(0, np.dot(normal, view_dir))
@@ -93,18 +93,18 @@ def oren_nayar_brdf(normal, light_dir, view_dir, albedo=0.5, roughness=0.5):
     
     return (albedo / np.pi) * n_dot_l * (A + B * max(0, cos_phi_diff) * np.sin(alpha) * np.tan(beta))
 
-def satellite_brdf(normal, light_dir, view_dir, surface_type='solar_panel'):
+def satellite(normal, light_dir, view_dir, surface_type='solar_panel'):
     """Realistic model for different satellite surfaces"""
     if surface_type == 'solar_panel':
         # Solar panels: specular with some diffuse
-        return blinn_phong_brdf(normal, light_dir, view_dir, 
+        return blinn_phong(normal, light_dir, view_dir, 
                                albedo=0.15, specular=0.85, shininess=64)
     elif surface_type == 'body':
         # Body: mostly diffuse with slight roughness
-        return oren_nayar_brdf(normal, light_dir, view_dir,
+        return oren_nayar(normal, light_dir, view_dir,
                               albedo=0.3, roughness=0.4)
     elif surface_type == 'antenna':
         # Metal antenna: metallic with moderate roughness
-        return cook_torrance_brdf(normal, light_dir, view_dir,
+        return cook_torrance(normal, light_dir, view_dir,
                                  albedo=0.8, roughness=0.3, metallic=0.9)
 
