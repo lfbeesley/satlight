@@ -572,5 +572,19 @@ class Renderer:
                             flux += radiance_es * self.pixel_area * cos_theta_es / self.distance_to_observer**2
 
                         self.image[y, x] = flux
+
+                    
+                edge_pixels = np.concatenate([
+                self.image[0, :].ravel(),   # top row
+                self.image[-1, :].ravel(),  # bottom row
+                self.image[:, 0].ravel(),   # left column
+                self.image[:, -1].ravel(),  # right column
+                ])
+                edge_threshold = 1e-6  # tweak to your noise floor
+                if np.any(edge_pixels > edge_threshold):
+                    print(f"  WARNING: illuminated pixels detected at frame edge "
+                        f"(max edge value {edge_pixels.max():.4g}) — spacecraft may be clipped out of "
+                        f"the field of view. Increase `resolution` / camera FOV and re-render.")
+
         return self.image
 
