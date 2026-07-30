@@ -1,5 +1,4 @@
 from math import *
-from tokenize import Double
 
 folderpath = ''
 filepath = ''
@@ -674,83 +673,3 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
     texture_count += fidelity * segments
 
     add_feature(vertex_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name)
-
-
-
-setup(r"Z:\Uni work\2nd year internship\Satlight program\\", "dish")
-
-
-
-
-parabola_geometry("dish", radius = 2, height = 1, segments = 25)
-
-
-
-
-
-
-"""
-#antenna
-parabola_geometry("dish", 1, 0.4, 20)
-prism_geometry("reciever", side_count=50,radius=0.1,height=0.1,z_offset=1)
-import_model("strut")
-import_model("strut", z_angle=120)
-import_model("strut", z_angle=240)
-
-"""
-
-#prism_geometry("strut1", side_count=20, radius=0.02, height=1.1662, x_offset=0.5-0.01,z_offset=0.7-0.01,y_angle=54)
-
-
-
-"""
-#RCS cluster
-prism_geometry("rcs hub", side_count = 4, radius = 0.07071, height = 0.1)
-
-prism_geometry("nozzel 1", side_count = 50, radius = 0.05, height = 0.1, taper = 3, is_hollow = True, wall_thickness = 0.0025,        
-               y_angle = 90,           
-               x_offset = 0.1)
-
-prism_geometry("nozzel 2", side_count = 50, radius = 0.05, height = 0.1, taper = 3, is_hollow = True, wall_thickness = 0.0025,        
-               y_angle = 90, z_angle = 180,            
-               x_offset = -0.1)
-
-prism_geometry("nozzel 3", side_count = 50, radius = 0.05, height = 0.1, taper = 3, is_hollow = True, wall_thickness = 0.0025,        
-               y_angle = 90, z_angle = 270,            
-               y_offset = 0.1)
-
-prism_geometry("nozzel 4", side_count = 50, radius = 0.05, height = 0.1, taper = 3, is_hollow = True, wall_thickness = 0.0025,        
-               y_angle = 90, z_angle = 90,            
-               y_offset = -0.1)
-
-"""
-
-
-"""
-#Hubble
-prism_geometry(side_count = 50, radius = 1.2, height = 8.2, taper = 1, is_hollow = True, wall_thickness = 0.1,        
-               x_scale = 1, y_scale = 1, z_scale = 1,           
-               x_angle = 0, y_angle = 0, z_angle = 0,            
-               x_offset = 0, y_offset = 0, z_offset = 6.6)
-
-prism_geometry(side_count = 50, radius = 2.1, height = 5, taper = 1, is_hollow = False, wall_thickness = 0.1,        
-               x_scale = 1, y_scale = 1, z_scale = 1,           
-               x_angle = 0, y_angle = 0, z_angle = 0,            
-               x_offset = 0, y_offset = 0, z_offset = 0)
-
-prism_geometry(side_count = 50, radius = 0.1, height = 9.45, taper = 1, is_hollow = False, wall_thickness = 0.1,        
-               x_scale = 1, y_scale = 1, z_scale = 1,           
-               x_angle = 0, y_angle = 90, z_angle = 0,            
-               x_offset = 0, y_offset = 0, z_offset = 3)
-
-prism_geometry(side_count = 4, radius = 0.7071, height = 0.1, taper = 1, is_hollow = False, wall_thickness = 0.1,        
-               x_scale = 2.45, y_scale = 7.56, z_scale = 1,           
-               x_angle = -30, y_angle = 0, z_angle = 0,            
-               x_offset = 3.5, y_offset = 0, z_offset = 3)
-
-prism_geometry(side_count = 4, radius = 0.7071, height = 0.1, taper = 1, is_hollow = False, wall_thickness = 0.1,        
-               x_scale = 2.45, y_scale = 7.56, z_scale = 1,           
-               x_angle = -30, y_angle = 0, z_angle = 0,            
-               x_offset = -3.5, y_offset = 0, z_offset = 3)
-
-"""
