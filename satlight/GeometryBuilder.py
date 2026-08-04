@@ -3,8 +3,6 @@ from math import *
 folderpath = ''
 filepath = ''
 
-
-object_count = 0
 vertex_count = 0
 texture_count = 0
 normal_count = 0
@@ -16,6 +14,14 @@ def setup(folder, name, x_rotation = 0, y_rotation = 0, z_rotation = 0):
     global filepath
     global folderpath
 
+    global vertex_count
+    global texture_count
+    global normal_count 
+
+    vertex_count = 0
+    texture_count = 0
+    normal_count = 0
+    
     folderpath = folder
 
     filepath = folder + name + '.obj'
@@ -140,7 +146,6 @@ def calc_normals(coords1, coords2, coords3):
         vec1[i] = coords2[i] - coords1[i]
         vec2[i] = coords3[i] - coords1[i]
 
-    normalxyz = [1, 1, 1]
     normal = [1, 1, 1]
 
     x1 = vec1[0]
