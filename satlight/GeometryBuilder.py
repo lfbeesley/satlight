@@ -3,6 +3,7 @@ from math import *
 folderpath = ''
 filepath = ''
 
+object_count = 0
 vertex_count = 0
 texture_count = 0
 normal_count = 0
