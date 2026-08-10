@@ -19,6 +19,6 @@ def AB_mag(I):
     delta_nu = nu_2 - nu_1 
 
     # Calc AB_magnitude
-    AB_mag = -2.5 * np.log10(I/delta_nu) + 8.9 - 62 # - 62 convert eqn. from Jy to W
+    AB_mag = -2.5 * np.log10(I/delta_nu) + 8.9 - 65 # - 62 convert eqn. from Jy to W
 
     return AB_mag
