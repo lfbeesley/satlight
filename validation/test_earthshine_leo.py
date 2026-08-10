@@ -48,10 +48,9 @@ n_steps = int(T_sec / dt)
 geometry.set_time((2025, 5, 4, 0, 0, range(0, n_steps * dt, dt)))
 
 print(f"  Steps:     {n_steps} at {dt}s cadence\n")
-
 # ── CERES albedo loader ───────────────────────────────────────────────────────
 def _load_ceres_albedo():
-    path = files("satlight.data").joinpath("ceres_albedo_annual.npy")
+    path = files("satlight.data").joinpath("ceres_albedo_monthly.npy")
     return np.load(path)
 
 def _lookup_albedo(grid, lat_deg, lon_deg):

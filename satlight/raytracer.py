@@ -16,13 +16,13 @@ BRDF_REGISTRY = {
     'phong':        phong,
     'blinn_phong':  blinn_phong,
     'cook_torrance': cook_torrance,
-    'oren_nayar':   oren_nayar,
+    'oren_nayar':   oren_nayar
 }
 
 class Renderer:
     """ To manage and render the object in blender and perform the ray-casting."""
 
-    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500),solar_constant = 1460, add_earthshine=False, brdf='lambertian'):
+    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500), solar_constant = 1460, add_shadows =True, add_earthshine=False, brdf='lambertian'):
         '''
         obj_path can be either .obj or .stl
         distance_to_observer in km
@@ -42,6 +42,7 @@ class Renderer:
         self.earthshine_irradiance = 0.0
         self.earthshine_direction  = None 
         self.add_earthshine = add_earthshine
+        self.add_shadow = add_earthshine
 
         # Set up BRDFs
         if isinstance(brdf, dict):
@@ -50,10 +51,10 @@ class Renderer:
             self.brdf_map = {'default': brdf}
 
     def initialise_scene(self):
-        # Set-up scene
         bpy.ops.wm.read_factory_settings(use_empty=True)
         self.ortho_scale = self._load_and_center_object(self.obj_path)
         self.add_camera()
+        self.update(self.sun_direction, self.observer_direction, self.distance_to_observer) 
 
 
     @hide_warnings()
@@ -70,11 +71,9 @@ class Renderer:
         
         # Store imported objects
         self.imported_objects = bpy.context.selected_objects
-        
-        # Calculate geometric center
+     
+        # Compute bounding-box center from world-space mesh geometry
         mesh_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
-
-        # Compute bounding box of all combined meshes
         bpy.context.view_layer.update()
         all_corners = []
         for obj in mesh_objects:
@@ -83,14 +82,28 @@ class Renderer:
         min_corner = Vector(map(min, zip(*all_corners)))
         max_corner = Vector(map(max, zip(*all_corners)))
         center = (min_corner + max_corner) / 2
-        
-        extents = max_corner - min_corner
-        ortho_scale = max(extents.x, extents.y, extents.z) * 1.2
 
-        # Move all meshes so their center is at origin
-        for obj in mesh_objects:
+        extents = max_corner - min_corner
+        max_extent = max(extents.x, extents.y, extents.z)
+
+        # Sanity check
+        MAX_SENSIBLE_EXTENT = 100.0  # metres
+        if max_extent > MAX_SENSIBLE_EXTENT:
+            raise ValueError(
+                f"Imported object bounding box is {max_extent:.1f} m across "
+                f"(extents x={extents.x:.1f}, y={extents.y:.1f}, z={extents.z:.1f} m) "
+                f"— this is implausibly large for a satellite and likely means a unit "
+                f"mismatch rather than a real geometry. Check the .obj/.stl file as it "
+                f"maybe authored in mm or cm, not metres. "
+            )
+
+        ortho_scale = max_extent * 1.2
+
+        root_objects = [obj for obj in bpy.context.scene.objects if obj.parent is None]
+        for obj in root_objects:
             obj.location -= center
-        
+        bpy.context.view_layer.update()
+
         return ortho_scale
 
     def add_camera(self):
@@ -273,7 +286,7 @@ class Renderer:
                 showscale=False, hovertext=label, hoverinfo='text',
             ))
 
-        # Mesh — rotated by full_rot (body rotation + blender axis correction)
+        # Mesh — body rotation + blender axis correction
         for name, mesh in geometries.items():
             verts = (full_rot @ (mesh.vertices - centroid).T).T
             fig.add_trace(go.Mesh3d(
@@ -573,18 +586,18 @@ class Renderer:
 
                         self.image[y, x] = flux
 
-                    
-                edge_pixels = np.concatenate([
-                self.image[0, :].ravel(),   # top row
-                self.image[-1, :].ravel(),  # bottom row
-                self.image[:, 0].ravel(),   # left column
-                self.image[:, -1].ravel(),  # right column
-                ])
-                edge_threshold = 1e-6  # tweak to your noise floor
-                if np.any(edge_pixels > edge_threshold):
-                    print(f"  WARNING: illuminated pixels detected at frame edge "
-                        f"(max edge value {edge_pixels.max():.4g}) — spacecraft may be clipped out of "
-                        f"the field of view. Increase `resolution` / camera FOV and re-render.")
+            edge_pixels = np.concatenate([
+            self.image[0, :].ravel(),   # top row
+            self.image[-1, :].ravel(),  # bottom row
+            self.image[:, 0].ravel(),   # left column
+            self.image[:, -1].ravel(),
+        ])
+        edge_threshold = 1e-6  # tweak to your noise floor
+        if np.any(edge_pixels > edge_threshold):
+            print(f"  WARNING: illuminated pixels detected at frame edge "
+                  f"(max edge value {edge_pixels.max():.4g}) — spacecraft may be clipped out of "
+                  f"the field of view. Increase `resolution` / camera FOV and re-render.")
 
         return self.image
+
 

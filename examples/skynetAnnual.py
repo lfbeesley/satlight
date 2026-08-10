@@ -53,7 +53,7 @@ cadence_min      = 10
 min_elevation    = 5.0        # degrees, below this we skip
 
 # Renderer settings
-resolution       = (300, 300)
+resolution       = (100, 100)
 solar_constant   = 1361.0     # W/m^2
 add_earthshine   = False
 
@@ -82,14 +82,14 @@ geom0 = Geometry()
 geom0.create_observer(observer_lat, observer_lon, observer_alt_m)
 geom0.create_satellite_from_elements(
     a_km=a_km, e=0.0, i_deg=0.0,
-    raan_deg=geo_raan(geo_longitude, t_utc),
-    argp_deg=0.0, nu_deg=0.0, epoch=t_utc,)
+    raan_deg=geo_raan(geo_longitude, t0_dt),
+    argp_deg=0.0, nu_deg=0.0, epoch=t0_dt,
+)
 
 geom0.set_time((t0_dt.year, t0_dt.month, t0_dt.day,
                 t0_dt.hour, t0_dt.minute, t0_dt.second))
 
-# Geometry.incident_vector_lvlh is sun->sat; negate for sat->sun (toward sun)
-sun_lvlh_0 = -geom0.incident_vector_lvlh
+sun_lvlh_0 = geom0.incident_vector_lvlh
 obs_lvlh_0 =  geom0.outgoing_vector_lvlh    # sat->observer
 dist_obs_0 = float(geom0.prop_distance) * 1e3   # m
 
@@ -120,9 +120,9 @@ for week_idx, step_idx, t_utc in tqdm(time_grid, desc='Lightcurve'):
     geom = Geometry()
     geom.create_observer(observer_lat, observer_lon, observer_alt_m)
     geom.create_satellite_from_elements(
-        a_km=a_km, e=0.0, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,
-        nu_deg=geo_longitude, epoch=t_utc,
-    )
+        a_km=a_km, e=0.0, i_deg=0.0,
+        raan_deg=geo_raan(geo_longitude, t_utc),
+        argp_deg=0.0, nu_deg=0.0, epoch=t_utc,)
     geom.set_time((t_utc.year, t_utc.month, t_utc.day,
                    t_utc.hour, t_utc.minute, t_utc.second))
 
@@ -159,8 +159,7 @@ for week_idx, step_idx, t_utc in tqdm(time_grid, desc='Lightcurve'):
         continue
 
     # -- Directions in LVLH --------------------------------------------------
-    # Geometry convention: incident_vector_lvlh = sun->sat, so negate for sat->sun
-    sun_lvlh = -geom.incident_vector_lvlh   # toward sun
+    sun_lvlh = geom.incident_vector_lvlh   # toward sun
     obs_lvlh =  geom.outgoing_vector_lvlh   # toward observer
     dist_obs = float(geom.prop_distance) * 1e3   # m
 
