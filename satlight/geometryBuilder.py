@@ -222,9 +222,9 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                         except:
                             if char == '.':
                                 digit += char
-                            if char == '-':
+                            elif char == '-':
                                 digit += char
-                            if char == 'e':
+                            elif char == 'e':
                                 digit += char
 
                 x = float(coords[0]) * scale
@@ -248,7 +248,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
 
-                vertex_line = "v " + str("{:.6f}".format(vertex[0])) + " " + str("{:.6f}".format(vertex[2])) + " " + str("{:.6f}".format(vertex[2])) + " " + "\n"
+                vertex_line = "v " + str("{:.6f}".format(vertex[0])) + " " + str("{:.6f}".format(vertex[1])) + " " + str("{:.6f}".format(vertex[2])) + " " + "\n"
 
                 object_lines.append(vertex_line)
 
@@ -282,9 +282,9 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                         except:
                             if char == '.':
                                 digit += char
-                            if char == '-':
+                            elif char == '-':
                                 digit += char
-                            if char == 'e':
+                            elif char == 'e':
                                 digit += char
 
                 x = float(coords[0])
