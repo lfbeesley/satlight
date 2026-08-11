@@ -249,7 +249,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
 
-                vertex_line = "v " + str(vertex[0]) + " " + str(vertex[1]) + " " + str(vertex[2]) + " " + "\n"
+                vertex_line = "v " + str(round(vertex[0], 6)) + " " + str(round(vertex[1], 6)) + " " + str(round(vertex[2], 6)) + " " + "\n"
 
                 object_lines.append(vertex_line)
 
@@ -315,7 +315,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 normal[2] = round(normal[2] / normal_leng, 5)
 
 
-                vertex_line = "vn " + str(normal[0]) + " " + str(normal[1]) + " " + str(normal[2]) + " " + "\n"
+                vertex_line = "vn " + str(round(normal[0], 4)) + " " + str(round(normal[1], 4)) + " " + str(round(normal[2], 4)) + " " + "\n"
 
                 object_lines.append(vertex_line)
 
