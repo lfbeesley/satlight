@@ -200,7 +200,6 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 object_lines.append(line)
 
 
-
             elif line.find('v ') != -1:
 
                 space_count = 0
@@ -249,12 +248,11 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
 
-                vertex_line = "v " + str(round(vertex[0], 6)) + " " + str(round(vertex[1], 6)) + " " + str(round(vertex[2], 6)) + " " + "\n"
+                vertex_line = "v " + str("{:.6f}".format(vertex[0])) + " " + str("{:.6f}".format(vertex[2])) + " " + str("{:.6f}".format(vertex[2])) + " " + "\n"
 
                 object_lines.append(vertex_line)
 
                 vertex_track += 1
-
 
 
             elif line.find('vt ') != -1:
@@ -308,14 +306,12 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 if z_angle != 0:
                     normal = z_rotation(z_angle, normal)
 
-
                 normal_leng = sqrt(normal[0] ** 2 + normal[1] ** 2 + normal[2] ** 2)
                 normal[0] = round(normal[0] / normal_leng, 5)
                 normal[1] = round(normal[1] / normal_leng, 5)
                 normal[2] = round(normal[2] / normal_leng, 5)
 
-
-                vertex_line = "vn " + str(round(normal[0], 4)) + " " + str(round(normal[1], 4)) + " " + str(round(normal[2], 4)) + " " + "\n"
+                vertex_line = "vn " + str("{:.4f}".format(normal[0])) + " " + str("{:.4f}".format(normal[1])) + " " + str("{:.4f}".format(normal[2])) + " " + "\n"
 
                 object_lines.append(vertex_line)
 
