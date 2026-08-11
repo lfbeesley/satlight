@@ -195,7 +195,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
         for line in lines:
             
-            if line.find('o') != -1:
+            if line.find('o ') != -1:
 
                 object_lines.append(line)
 
@@ -230,7 +230,11 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 x = float(coords[0]) * scale
                 y = float(coords[1]) * scale
-                z = float(coords[2]) * scale
+                try:
+                    z = float(coords[2]) * scale
+                except:
+                    coords.append(float(digit))
+                    z = float(coords[2]) * scale
 
                 vertex = [x, y, z]
 
@@ -253,12 +257,12 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
 
 
-            elif line.find('vt') != -1:
+            elif line.find('vt ') != -1:
                
                 object_lines.append(line)
                 texture_track += 1
 
-            elif line.find('vn') != -1:
+            elif line.find('vn ') != -1:
                 
                 space_count = 0
                 digit = ""
@@ -287,7 +291,11 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 x = float(coords[0])
                 y = float(coords[1])
-                z = float(coords[2])
+                try:
+                    z = float(coords[2])
+                except:
+                    coords.append(float(digit))
+                    z = float(coords[2])
 
                 normal = [x, y, z]
 
@@ -313,11 +321,11 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 normal_track += 1
 
-            elif line.find('s') != -1:
+            elif line.find('s ') != -1:
 
                 object_lines.append(line)
 
-            elif line.find('f') != -1:
+            elif line.find('f ') != -1:
                 
                 index_location = 0
                 face_line = ""
