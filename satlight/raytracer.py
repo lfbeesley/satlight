@@ -24,10 +24,9 @@ class Renderer:
     def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500), solar_constant = 1361, add_earthshine=False, add_shadows=True, brdf='lambertian'):
         '''
         obj_path can be either .obj or .stl
-        distance_to_observer in km
+        distance_to_observer in m
         Resolution in (x,y)
         sun and obs_directions are normalised
-
         '''
         # Set constants
         self.obj_path = obj_path
