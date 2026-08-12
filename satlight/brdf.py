@@ -1,7 +1,7 @@
 import numpy as np
 
-def lambertian(normal, light_dir, view_dir, albedo = 1):
-    """Lambertian shading"""
+def lambertian(normal, light_dir, view_dir, albedo = 0.5):
+    """Lambertian shading; albedo defaults to 0.5."""
     n_dot_l = max(0, np.dot(normal, light_dir))
     return albedo / np.pi * n_dot_l
 
@@ -9,27 +9,26 @@ def phong(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shininess=32):
     """Phong shading with diffuse + specular components"""
     # Diffuse component
     n_dot_l = max(0, np.dot(normal, light_dir))
-    diffuse = albedo / np.pi * n_dot_l
     
     # Specular component (Phong)
     reflect_dir = 2 * n_dot_l * normal - light_dir
     spec_angle = max(0, np.dot(reflect_dir, view_dir))
-    specular_component = specular * (shininess + 2) / (2 * np.pi) * (spec_angle ** shininess)
-    
-    return diffuse + specular_component
+
+    return (albedo / np.pi
+        + specular * (shininess + 2) / (2 * np.pi) * spec_angle ** shininess) * n_dot_l
+
 
 def blinn_phong(normal, light_dir, view_dir, albedo=0.5, specular=0.5, shininess=32):
     """Blinn-Phong shading"""
     # Diffuse
     n_dot_l = max(0, np.dot(normal, light_dir))
-    diffuse = albedo / np.pi * n_dot_l
     
     # Specular (using halfway vector)
     halfway = (light_dir + view_dir) / np.linalg.norm(light_dir + view_dir)
     n_dot_h = max(0, np.dot(normal, halfway))
-    specular_component = specular * (shininess + 8) / (8 * np.pi) * (n_dot_h ** shininess)
-    
-    return diffuse + specular_component
+    return (albedo / np.pi
+            + specular * (shininess + 8) / (8 * np.pi) * n_dot_h ** shininess) * n_dot_l
+
 
 def cook_torrance(normal, light_dir, view_dir, albedo=0.3, roughness=0.5, metallic=0.1):
     """Cook-Torrance microfacet BRDF - more realistic for metals/glossy surfaces"""
@@ -59,7 +58,7 @@ def cook_torrance(normal, light_dir, view_dir, albedo=0.3, roughness=0.5, metall
     G = G1(n_dot_l) * G1(n_dot_v)
     
     # Specular term
-    specular = (D * G * fresnel) / (4 * n_dot_l * n_dot_v)
+    specular = (D * G * fresnel) / (4 * n_dot_v)
     
     # Diffuse term (with energy conservation)
     diffuse = (1 - fresnel) * (1 - metallic) * albedo / np.pi * n_dot_l

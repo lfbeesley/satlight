@@ -2,7 +2,6 @@ from importlib.resources import files
 import bpy
 import numpy as np
 from mathutils import Vector
-from mathutils.bvhtree import BVHTree
 import matplotlib.pyplot as plt
 from hide_warnings import hide_warnings
 import plotly.graph_objects as go
@@ -16,13 +15,13 @@ BRDF_REGISTRY = {
     'phong':        phong,
     'blinn_phong':  blinn_phong,
     'cook_torrance': cook_torrance,
-    'oren_nayar':   oren_nayar
+    'oren_nayar':   oren_nayar,
 }
 
 class Renderer:
     """ To manage and render the object in blender and perform the ray-casting."""
 
-    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500), solar_constant = 1460, add_shadows =True, add_earthshine=False, brdf='lambertian'):
+    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500), solar_constant = 1361, add_earthshine=False, add_shadows=True, brdf='lambertian'):
         '''
         obj_path can be either .obj or .stl
         distance_to_observer in km
@@ -42,7 +41,7 @@ class Renderer:
         self.earthshine_irradiance = 0.0
         self.earthshine_direction  = None 
         self.add_earthshine = add_earthshine
-        self.add_shadow = add_earthshine
+        self.add_shadows = add_shadows
 
         # Set up BRDFs
         if isinstance(brdf, dict):
@@ -51,11 +50,10 @@ class Renderer:
             self.brdf_map = {'default': brdf}
 
     def initialise_scene(self):
+        # Set-up scene
         bpy.ops.wm.read_factory_settings(use_empty=True)
         self.ortho_scale = self._load_and_center_object(self.obj_path)
         self.add_camera()
-        self.update(self.sun_direction, self.observer_direction, self.distance_to_observer) 
-
 
     @hide_warnings()
     def _load_and_center_object(self, obj_path):
@@ -71,9 +69,11 @@ class Renderer:
         
         # Store imported objects
         self.imported_objects = bpy.context.selected_objects
-     
-        # Compute bounding-box center from world-space mesh geometry
+        
+        # Calculate geometric center
         mesh_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
+
+        # Compute bounding box of all combined meshes
         bpy.context.view_layer.update()
         all_corners = []
         for obj in mesh_objects:
@@ -83,28 +83,21 @@ class Renderer:
         max_corner = Vector(map(max, zip(*all_corners)))
         center = (min_corner + max_corner) / 2
 
-        extents = max_corner - min_corner
-        max_extent = max(extents.x, extents.y, extents.z)
-
-        # Sanity check
-        MAX_SENSIBLE_EXTENT = 100.0  # metres
-        if max_extent > MAX_SENSIBLE_EXTENT:
-            raise ValueError(
-                f"Imported object bounding box is {max_extent:.1f} m across "
-                f"(extents x={extents.x:.1f}, y={extents.y:.1f}, z={extents.z:.1f} m) "
-                f"— this is implausibly large for a satellite and likely means a unit "
-                f"mismatch rather than a real geometry. Check the .obj/.stl file as it "
-                f"maybe authored in mm or cm, not metres. "
-            )
-
-        ortho_scale = max_extent * 1.2
-
-        root_objects = [obj for obj in bpy.context.scene.objects if obj.parent is None]
-        for obj in root_objects:
+        # Move all meshes so their center is at origin
+        for obj in mesh_objects:
             obj.location -= center
-        bpy.context.view_layer.update()
 
-        return ortho_scale
+        # ortho_scale must fit the object at ANY attitude, so size it to the
+        # bounding sphere rather than the axis-aligned extent — a box's diagonal
+        # is longer than its longest side, so a rotated body would otherwise
+        # overflow the frame.
+        bpy.context.view_layer.update()
+        radius = max((obj.matrix_world @ Vector(corner)).length
+                     for obj in mesh_objects
+                     for corner in obj.bound_box)
+        
+        return 2.0 * radius * 1.05
+        
 
     def add_camera(self):
         import mathutils as mu
@@ -168,49 +161,6 @@ class Renderer:
             ))
         return bboxes
     
-    def build_bvhs(self):
-        """
-        Build one BVH tree per mesh object from current (evaluated) geometry.
-        Call this once per frame, AFTER attitude/panel rotations are applied
-        and bpy.context.view_layer.update() has been called — NOT per-pixel.
-        """
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-        self.bvh_trees = {}
-
-        for obj in bpy.context.scene.objects:
-            if obj.type != 'MESH':
-                continue
-
-            eval_obj = obj.evaluated_get(depsgraph)
-            mesh = eval_obj.to_mesh()
-
-            # Transform vertices to world space (so all BVHs share one coordinate frame)
-            verts_world = [obj.matrix_world @ v.co for v in mesh.vertices]
-            polys = [list(p.vertices) for p in mesh.polygons]
-
-            self.bvh_trees[obj.name] = BVHTree.FromPolygons(verts_world, polys)
-
-            eval_obj.to_mesh_clear()
-
-    def _ray_cast_all(self, origin, direction):
-        """
-        Cast a ray against all object BVHs, return the closest hit.
-
-        Returns
-        -------
-        (hit: bool, location: Vector or None, normal: Vector or None, obj_name: str or None)
-        """
-        best_dist = float('inf')
-        best_loc, best_normal, best_name = None, None, None
-
-        for name, bvh in self.bvh_trees.items():
-            loc, normal, idx, dist = bvh.ray_cast(origin, direction)
-            if loc is not None and dist < best_dist:
-                best_dist = dist
-                best_loc, best_normal, best_name = loc, normal, name
-
-        return (best_loc is not None, best_loc, best_normal, best_name)
-
     def preview_lvlh_views(self, body_rotation=None):
         """
         Interactive 3D plotly preview of the spacecraft in the LVLH frame.
@@ -286,7 +236,7 @@ class Renderer:
                 showscale=False, hovertext=label, hoverinfo='text',
             ))
 
-        # Mesh — body rotation + blender axis correction
+        # Mesh — rotated by full_rot (body rotation + blender axis correction)
         for name, mesh in geometries.items():
             verts = (full_rot @ (mesh.vertices - centroid).T).T
             fig.add_trace(go.Mesh3d(
@@ -375,6 +325,15 @@ class Renderer:
         )
 
         fig.show()
+
+    def _cache_brdfs(self):
+        """Resolve each mesh object's BRDF once per frame, keyed by name."""
+        self._brdf_cache = {
+            o.name: self._get_for_object(o.name)
+            for o in bpy.context.scene.objects
+            if o.type == "MESH"
+        }
+
 
     def _build_patch_template(self, n_rings=40):
         """Build (and cache) the static Driscoll-Healy patch grid + per-patch CERES albedo.
@@ -530,74 +489,108 @@ class Renderer:
         self.camera_object.rotation_euler = rot.to_euler()
         
     def render(self):
-        # Build BVH trees once for this frame (NOT per-pixel)
-        self.build_bvhs()
-
+        bpy.context.view_layer.update()
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        ray_cast = bpy.context.scene.ray_cast
+        self._cache_brdfs()
+ 
         cam_matrix = self.camera_object.matrix_world
-        ray_dir_world = (cam_matrix.to_3x3() @ Vector((0, 0, -1))).normalized()
-        ray_dir = np.array(ray_dir_world)
-
+        ray_dir_world = (cam_matrix.to_3x3() @ Vector((0.0, 0.0, -1.0))).normalized()
+        vx, vy, vz = -ray_dir_world.x, -ray_dir_world.y, -ray_dir_world.z
+        view_dir = np.array((vx, vy, vz))
+ 
         self.image = np.zeros((self.resolution_y, self.resolution_x))
         self.hit_count = 0
         self.shadow_count = 0
+ 
+        mask = np.zeros((self.resolution_y, self.resolution_x), dtype=bool)
+        for x_min, x_max, y_min, y_max in self.get_object_pixel_bboxes():
+            mask[y_min:y_max, x_min:x_max] = True
+ 
+        ys, xs = np.nonzero(mask)
+        if ys.size == 0:
+            self._check_frame_edges()
+            return self.image
+ 
+        screen_x = (2.0 * xs / self.resolution_x) - 1.0
+        screen_y = 1.0 - (2.0 * ys / self.resolution_y)
+        cam_local = np.column_stack((
+            screen_x * (self.ortho_scale / 2),
+            screen_y * (self.ortho_scale / 2) / self.aspect_ratio,
+            np.zeros(xs.size),
+        ))
+        Mc = np.array(cam_matrix)
+        origins_list = (cam_local @ Mc[:3, :3].T + Mc[:3, 3]).tolist()
+ 
+        sun_dir_np = np.array(self.sun_direction, dtype=float)
+        sx, sy, sz = sun_dir_np.tolist()
+        sun_dir_vec = Vector((sx, sy, sz))
+ 
+        es_on = self.add_earthshine and self.earthshine_direction is not None
+        es_dir_np = np.array(self.earthshine_direction, dtype=float) if es_on else None
+ 
+        inv_d2 = 1.0 / self.distance_to_observer ** 2
+        k_sun = self.solar_constant * self.pixel_area * inv_d2
+        k_es = (self.earthshine_irradiance * self.pixel_area * inv_d2) if es_on else 0.0
+ 
+        brdf_cache = self._brdf_cache
+        image = self.image
+ 
+        for i in range(xs.size):
+            ox, oy, oz = origins_list[i]
+            hit, loc, normal, _face, obj, _m = ray_cast(
+                depsgraph, Vector((ox, oy, oz)), ray_dir_world
+            )
+            if not hit:
+                continue
+            self.hit_count += 1
+ 
+            # Plain floats: numpy on 3-vectors costs more in overhead than it saves.
+            nx, ny, nz = normal.x, normal.y, normal.z
+            cos_theta = nx * vx + ny * vy + nz * vz
+            if cos_theta <= 0.0:
+                continue
+ 
+            brdf_func, brdf_kwargs = brdf_cache[obj.name]
+            n_dot_l = nx * sx + ny * sy + nz * sz
+            flux = 0.0
+            hit_normal = None
+ 
+            if n_dot_l > 0.0:
+                lit = True
+                if self.add_shadows:
+                    eps = self.ortho_scale * 1e-5
+                    shadow_origin = Vector((loc.x + nx*eps,
+                                            loc.y + ny*eps,
+                                            loc.z + nz*eps))
+                    lit = not ray_cast(depsgraph, shadow_origin, sun_dir_vec)[0]
+                if lit:
+                    hit_normal = np.array((nx, ny, nz))
+                    flux += (brdf_func(hit_normal, sun_dir_np, view_dir, **brdf_kwargs)* k_sun)
+                else:
+                    self.shadow_count += 1
+ 
+            if es_on:
+                if hit_normal is None:
+                    hit_normal = np.array((nx, ny, nz))
+                flux += (
+                    brdf_func(hit_normal, es_dir_np, view_dir, **brdf_kwargs) * k_es)
 
-        bboxes = self.get_object_pixel_bboxes()
-        for x_min, x_max, y_min, y_max in bboxes:
-            for y in range(y_min, y_max):
-                for x in range(x_min, x_max):
-                    screen_x = (2.0 * x / self.resolution_x) - 1.0
-                    screen_y = 1.0 - (2.0 * y / self.resolution_y)
-
-                    ray_origin_cam = Vector((
-                        screen_x * (self.ortho_scale / 2),
-                        screen_y * (self.ortho_scale / 2) / self.aspect_ratio,
-                        0.0
-                    ))
-                    ray_origin_world = cam_matrix @ ray_origin_cam
-
-                    result, location, normal, obj_name = self._ray_cast_all(ray_origin_world, ray_dir_world)
-
-                    if result:
-                        self.hit_count += 1
-                        hit_point  = np.array(location)
-                        hit_normal = np.array(normal)
-
-                        brdf_func, brdf_kwargs = self._get_for_object(obj_name)
-
-                        shadow_origin = hit_point + hit_normal * 1e-4
-                        shadow_result, *_ = self._ray_cast_all(Vector(shadow_origin.tolist()), self.sun_direction)
-                        view_dir = -ray_dir
-
-                        flux = 0
-                        if not shadow_result:
-                            sun_dir_np = np.array(self.sun_direction, dtype=float)
-                            brdf_val = brdf_func(hit_normal, sun_dir_np, view_dir, **brdf_kwargs)
-                            radiance = brdf_val * self.solar_constant
-                            cos_theta = max(0, np.dot(hit_normal, view_dir))
-                            self.projected_area = self.pixel_area * cos_theta
-                            flux += radiance * self.projected_area / self.distance_to_observer**2
-
-                        if self.add_earthshine and self.earthshine_direction is not None:
-                            es_dir_np = np.array(self.earthshine_direction, dtype=float)
-                            brdf_val_es = brdf_func(hit_normal, es_dir_np, view_dir, **brdf_kwargs)
-                            radiance_es = brdf_val_es * self.earthshine_irradiance
-                            cos_theta_es = max(0, np.dot(hit_normal, view_dir))
-                            flux += radiance_es * self.pixel_area * cos_theta_es / self.distance_to_observer**2
-
-                        self.image[y, x] = flux
-
-            edge_pixels = np.concatenate([
-            self.image[0, :].ravel(),   # top row
-            self.image[-1, :].ravel(),  # bottom row
-            self.image[:, 0].ravel(),   # left column
-            self.image[:, -1].ravel(),
-        ])
-        edge_threshold = 1e-6  # tweak to your noise floor
-        if np.any(edge_pixels > edge_threshold):
-            print(f"  WARNING: illuminated pixels detected at frame edge "
-                  f"(max edge value {edge_pixels.max():.4g}) — spacecraft may be clipped out of "
-                  f"the field of view. Increase `resolution` / camera FOV and re-render.")
-
+            image[ys[i], xs[i]] = flux
+ 
+        self._check_frame_edges()
         return self.image
 
 
+    def _check_frame_edges(self, edge_threshold=1e-6):
+        """Warn once per frame if the spacecraft is clipped by the field of view."""
+        edge_pixels = np.concatenate([
+            self.image[0, :].ravel(),    # top row
+            self.image[-1, :].ravel(),   # bottom row
+            self.image[:, 0].ravel(),    # left column
+            self.image[:, -1].ravel(),   # right column
+        ])
+        if np.any(edge_pixels > edge_threshold):
+            print(f"  WARNING: illuminated pixels detected at frame edge "
+                  f"(max edge value {edge_pixels.max():.4g}) — spacecraft may be clipped out of "
+                  f"the field of view. Increase `resolution` or change aspect ratio and re-render.")
