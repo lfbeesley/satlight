@@ -5,7 +5,9 @@ from mathutils import Vector
 import matplotlib.pyplot as plt
 from hide_warnings import hide_warnings
 import plotly.graph_objects as go
-import trimesh
+import plotly.io as pio
+pio.renderers.default = 'browser'
+from types import SimpleNamespace
 from satlight.brdf import (
     lambertian, phong, blinn_phong,
     cook_torrance, oren_nayar, satellite)
@@ -86,10 +88,6 @@ class Renderer:
         for obj in mesh_objects:
             obj.location -= center
 
-        # ortho_scale must fit the object at ANY attitude, so size it to the
-        # bounding sphere rather than the axis-aligned extent — a box's diagonal
-        # is longer than its longest side, so a rotated body would otherwise
-        # overflow the frame.
         bpy.context.view_layer.update()
         radius = max((obj.matrix_world @ Vector(corner)).length
                      for obj in mesh_objects
@@ -198,8 +196,22 @@ class Renderer:
         # Full transform: correct axes first, then apply body rotation
         full_rot = rot_np @ blender_correction
 
-        raw = trimesh.load(self.obj_path, force=None, process=False)
-        geometries = raw.geometry if hasattr(raw, 'geometry') else {'model': raw}
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        geometries = {}
+        for obj in bpy.context.scene.objects:
+            if obj.type != 'MESH':
+                continue
+            me = obj.evaluated_get(depsgraph).to_mesh()
+            me.calc_loop_triangles()
+            v = np.empty(len(me.vertices) * 3)
+            me.vertices.foreach_get('co', v)
+            M = np.array(obj.matrix_world)
+            verts = v.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]     # world space
+            f = np.empty(len(me.loop_triangles) * 3, dtype=np.int64)
+            me.loop_triangles.foreach_get('vertices', f)
+            geometries[obj.name] = SimpleNamespace(vertices=verts,
+                                                faces=f.reshape(-1, 3))
+            obj.evaluated_get(depsgraph).to_mesh_clear()
 
         all_verts  = np.vstack([g.vertices for g in geometries.values()])
         centroid   = (all_verts.min(axis=0) + all_verts.max(axis=0)) / 2
