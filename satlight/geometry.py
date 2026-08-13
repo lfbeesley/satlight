@@ -2,11 +2,9 @@ import numpy as np
 import os
 import datetime
 from skyfield.api import Loader, wgs84, EarthSatellite
-from sgp4.api import Satrec, WGS84 as WGS84_gravity
+from sgp4.api import WGS84 as WGS84_gravity
 from astropy.constants import R_sun, R_earth, au
 from astropy import units as u
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 # store de421.bsp in users local dir
 _data_dir = os.path.join(os.path.expanduser('~'), '.satlight')
@@ -14,8 +12,8 @@ os.makedirs(_data_dir, exist_ok=True)
 load = Loader(_data_dir)
 
 # Constants
-R_earth = R_earth.to(u.km).value
-R_sun =  R_sun.to(u.km).value
+R_EARTH_KM = R_earth.to(u.km).value
+R_SUN_KM =  R_sun.to(u.km).value
 AU = au.to(u.km).value
 
 class Geometry():
@@ -24,13 +22,17 @@ class Geometry():
     in the Geocentric Celestial Reference System (GCRS).
     """
     def __init__(self):
-        """Initialise scene geometry."""
-        self.ts = load.timescale()
-        self.planets = load('de421.bsp') 
-        self.earth = self.planets['earth']
-        self.sun = self.planets['sun']
-        self.moon = self.planets['moon']
-    
+            """Initialise scene geometry."""
+            self.ts = load.timescale()
+            self.planets = load('de421.bsp')
+            self.earth = self.planets['earth']
+            self.sun = self.planets['sun']
+            self.moon = self.planets['moon']
+
+            self.satellite = None
+            self.observer = None
+            self.time = None
+
     def create_satellite(self, tle_line1, tle_line2, name = 'satellite'): #future will include OMM and custom orbits?
         """Create a satellite object from TLE data."""
         self.satellite = EarthSatellite(tle_line1, tle_line2, name)
@@ -41,7 +43,7 @@ class Geometry():
         self.observer = wgs84.latlon(observer_lat, observer_lon, elevation_m=observer_alt_m)
         return self.observer
     
-    def set_time(self, time_utc):
+    def set_time(self, *time_utc):
         """Set observation time in UTC.
 
         For SINGLE time calculation:
@@ -202,59 +204,49 @@ class Geometry():
         self.phase_angle = np.arccos(np.clip(dot_product, -1.0, 1.0))
 
     def eclipse_type(self):
-        """Calculate the nature of the eclipse, used to identify object illumination"""
-        # Positions
-        sat_pos = self.positions['satellite']
-        earth_pos = self.positions['earth']
-        
-        # Distances
-        dist_sat_to_earth = np.linalg.norm(sat_pos - earth_pos, axis=0) # Distance from satellite to Earth
+        """Fraction of the solar disc visible from the satellite.
 
-        # Apparent angular radii
-        theta_earth = np.arctan(R_earth/dist_sat_to_earth)
-        theta_sun= np.arctan(R_sun/AU)
+        Returns 1.0 in full sunlight, 0.0 in umbra, and the unobscured
+        fraction in penumbra. Uses the Sun-satellite-Earth angle; the observer
+        plays no part in this.
+        """
+        sat_pos = np.atleast_2d(self.positions['satellite'].T).T   # (3,) or (3,N)
+        d = np.linalg.norm(sat_pos, axis=0)
 
-        # Angular seperation between Earth and Sun
-        theta = self.phase_angle
+        # Angular radii as seen from the satellite
+        theta_earth = np.arcsin(np.clip(R_EARTH_KM / d, -1.0, 1.0))
+        theta_sun = np.arcsin(R_SUN_KM / AU)
 
-        # Calculate fraction of sun that is visible
-        f = np.zeros_like(theta)
+        # Angular separation of the Earth's centre from the Sun's centre
+        to_earth = -sat_pos / d
+        cos_sep = np.sum(to_earth * self.incident_vector, axis=0)
+        theta = np.arccos(np.clip(cos_sep, -1.0, 1.0))
 
-        # Object is fully illumintated
-        f = np.where(theta > theta_sun + theta_earth, 1, f)
+        theta = np.atleast_1d(theta)
+        theta_earth = np.atleast_1d(theta_earth)
 
-        # Object is fully eclipsed
-        f = np.where(theta < theta_sun - theta_earth, 0, f)
+        f = np.ones_like(theta)
+        f[theta < theta_earth - theta_sun] = 0.0                 # umbra
 
-        # Object is partially illuminated
-        mask = (theta <= theta_sun + theta_earth) & (theta >= np.abs(theta_sun - theta_earth))
+        pen = ((theta >= np.abs(theta_earth - theta_sun)) &
+               (theta <= theta_earth + theta_sun))
+        if np.any(pen):
+            r1 = theta_sun                       # solar disc
+            r2 = theta_earth[pen] if theta_earth.size > 1 else theta_earth[0]
+            dd = theta[pen]
+            phi1 = np.arccos(np.clip((dd**2 + r1**2 - r2**2) / (2*dd*r1), -1, 1))
+            phi2 = np.arccos(np.clip((dd**2 + r2**2 - r1**2) / (2*dd*r2), -1, 1))
+            A = (r1**2 * phi1 + r2**2 * phi2
+                 - 0.5*np.sqrt(np.clip((-dd+r1+r2)*(dd+r1-r2)
+                                       * (dd-r1+r2)*(dd+r1+r2), 0, None)))
+            f[pen] = 1.0 - A / (np.pi * r1**2)
 
-        if np.any(mask):  # Only compute if there’s at least one element
-            r1 = theta_sun
-            r2 = theta_earth
-            d = theta[mask]
-
-            phi1 = np.arccos(np.clip((d**2 + r1**2 - r2**2) / (2 * d * r1), -1, 1))
-            phi2 = np.arccos(np.clip((d**2 + r2**2 - r1**2) / (2 * d * r2), -1, 1))
-            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt(np.clip((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2), 0, None))
-            f[mask] = 1 - A / (np.pi * r1**2)
-        
-        else:
-            r1 = theta_sun
-            r2 = theta_earth
-            d = theta
-
-            phi1 = np.arccos(np.clip((d**2 + r1**2 - r2**2) / (2 * d * r1), -1, 1))
-            phi2 = np.arccos(np.clip((d**2 + r2**2 - r1**2) / (2 * d * r2), -1, 1))
-            A = r1**2 * phi1 + r2**2 * phi2 - 0.5 * np.sqrt(np.clip((-d+r1+r2)*(d+r1-r2)*(d-r1+r2)*(d+r1+r2), 0, None))
-            f = 1 - A / (np.pi * r1**2)
-
-        return f  
+        return f if f.size > 1 else float(f[0])
 
     def create_satellite_from_elements(self, a_km, e, i_deg, raan_deg,
                                         argp_deg, nu_deg, epoch=None):
         if epoch is None:
-            epoch = datetime.datetime.utcnow()
+            epoch = datetime.datetime.now(datetime.timezone.utc)
 
         # True anomaly -> mean anomaly
         nu = np.radians(nu_deg)
@@ -267,24 +259,14 @@ class Geometry():
         n  = np.sqrt(GM / a_km**3)
 
         # SGP4 epoch: days from 1949-12-31 00:00:00 UTC
-        epoch_base = datetime.datetime(1949, 12, 31, 0, 0, 0)
+        epoch_base = datetime.datetime(1949, 12, 31, tzinfo=datetime.timezone.utc)
         epoch_days = (epoch - epoch_base).total_seconds() / 86400.0
 
-        satrec = Satrec()
         satrec.sgp4init(
-            WGS84_gravity,
-            'i',
-            99999,
-            (epoch - datetime.datetime(1949, 12, 31, 0, 0, 0)).total_seconds() / 86400.0,
-            0.0,   # bstar
-            0.0,   # ndot
-            0.0,   # nddot
-            e,
-            np.radians(argp_deg),
-            np.radians(i_deg),
-            M,
-            n * 60, # rad/min 
-            np.radians(raan_deg),
+            WGS84_gravity, 'i', 99999, epoch_days,
+            0.0, 0.0, 0.0,
+            e, np.radians(argp_deg), np.radians(i_deg), M,
+            n * 60, np.radians(raan_deg),
         )
 
         self.satellite = EarthSatellite.from_satrec(satrec, self.ts)
