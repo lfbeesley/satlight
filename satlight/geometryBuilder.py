@@ -511,13 +511,13 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
     if is_hollow == False:
 
         normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-4], vertecies_list[0])
-        normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
+        normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
         normal_list.extend([normal_vector])
         normal_reference.append(side_count + 1 + normal_count)
 
 
         normal_vector = calc_normals(vertecies_list[-1], vertecies_list[-3], vertecies_list[1])
-        normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+        normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
         normal_list.extend([normal_vector])
         normal_reference.append(side_count + 2 + normal_count)
 
@@ -529,7 +529,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
          
         #top
         normal_vector = calc_normals(vertecies_list[0], vertecies_list[2], vertecies_list[2 * side_count])
-        normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
+        normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
         normal_list.extend([normal_vector])
 
         for i in range(side_count - 1):
@@ -544,7 +544,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
         #bottom
         normal_vector = calc_normals(vertecies_list[1], vertecies_list[3], vertecies_list[2 * side_count + 1])
-        normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+        normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
         normal_list.extend([normal_vector])
 
         for i in range(side_count - 1):
