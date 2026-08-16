@@ -644,7 +644,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
                 face_list.extend([current_face])
 
                 normal_vector = calc_normals(vertex_list[0], vertex_list[j], vertex_list[j + 1])
-                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+                normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                 normal_list.extend([normal_vector])
                 normal_reference.append(j + normal_count)
 
