@@ -644,6 +644,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
                 face_list.extend([current_face])
 
                 normal_vector = calc_normals(vertex_list[0], vertex_list[j], vertex_list[j + 1])
+                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
                 normal_list.extend([normal_vector])
                 normal_reference.append(j + normal_count)
 
@@ -652,6 +653,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
                     face_list.extend([current_face])
 
                     normal_vector = calc_normals(vertex_list[0], vertex_list[1], vertex_list[j + 1])
+                    normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
                     normal_list.extend([normal_vector])
                     normal_reference.append(j + 1 + normal_count)
 
@@ -660,6 +662,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
                 face_list.extend([current_face])
 
                 normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j], vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * i + j + 1])
+                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
                 normal_list.extend([normal_vector])
                 normal_reference.append(fidelity * i + j + normal_count)
                  
@@ -668,6 +671,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
                     face_list.extend([current_face])
 
                     normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * (i - 1) + 1], vertex_list[fidelity * i + j + 1])
+                    normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
                     normal_list.extend([normal_vector])
                     normal_reference.append(fidelity * i + j + 1+ normal_count)
 
