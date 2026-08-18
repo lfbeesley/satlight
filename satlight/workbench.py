@@ -456,14 +456,14 @@ def rotations(event):
     deltaz = - current_pos[0] + mousexz[0] + priordeltas[0]
 
     if normalised_theta_z >= 1 and normalised_theta_z < 3:
-        deltay = - current_pos[1] + mousexz[1] + priordeltas[1]
-    else:
         deltay = current_pos[1] - mousexz[1] + priordeltas[1]
+    else:
+        deltay = - current_pos[1] + mousexz[1] + priordeltas[1]
 
     if normalised_theta_z >= 0 and normalised_theta_z < 2:
-        deltax = current_pos[1] - mousexz[1] + priordeltas[1]
-    elif normalised_theta_z >= 2 and normalised_theta_z < 4:
         deltax = - current_pos[1] + mousexz[1] + priordeltas[1]
+    elif normalised_theta_z >= 2 and normalised_theta_z < 4:
+        deltax = current_pos[1] - mousexz[1] + priordeltas[1]
 
     side_ratio = abs(cos(2* pi* theta_z / 360))
 
@@ -616,7 +616,7 @@ def create_geometry():
             try:
                 geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
                 geometryBuilder.parabola_geometry(name = '', radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] - 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
-                geometryBuilder.prism_geometry(name = '',side_count = typesetting[3], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] - 0.0005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                geometryBuilder.prism_geometry(name = '',side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] - 0.0005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
             except:
                 popup = tk.Toplevel()
                 popup.title("Error")
