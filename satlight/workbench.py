@@ -356,7 +356,7 @@ def draw_points():
                 coords1 = corrected_vertex[int(lines[0])-1]
                 coords2 = corrected_vertex[int(lines[1])-1]
                 coords3 = corrected_vertex[int(lines[2])-1]
-                mean_depth.append((coords1[1] + coords2[1] + coords3[1]) / 4)
+                mean_depth.append((coords1[1] + coords2[1] + coords3[1]) / 3)
                 mean_depth_index.append(k)
 
             if len(lines) == 4:
@@ -616,7 +616,7 @@ def create_geometry():
             try:
                 geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
                 geometryBuilder.parabola_geometry(name = '', radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] - 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
-                geometryBuilder.prism_geometry(name = '',side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] - 0.0005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                geometryBuilder.prism_geometry(name = '',side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] - 0.0005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8] + (360 / typesetting[4]) / 2)
             except:
                 popup = tk.Toplevel()
                 popup.title("Error")
