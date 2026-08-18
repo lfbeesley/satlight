@@ -341,7 +341,10 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                         if index_location == 0:
                             number = str(int(number) + vertex_count)
                         elif index_location == 1:
-                            number = str(int(number) + texture_count)
+                            try:
+                                number = str(int(number) + texture_count)
+                            except:
+                                pass
 
                         face_line += number
                         number = ''
@@ -400,9 +403,15 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
     else:
         revolutions = 1
     
-    for i in range(side_count * revolutions):
+    for i in range(side_count * revolutions + (2 - revolutions)):
 
-        if current_angle >= 360:
+
+
+        if i > (side_count * revolutions):
+            x = 0
+            y = 0
+            z = (height / 2) * z_scale
+        elif current_angle >= 360:
             x = (radius - wall_thickness) * cos(2 * pi * current_angle / 360) * x_scale
             y = (radius - wall_thickness) * sin(2 * pi * current_angle / 360) * y_scale
             z = (height / 2) * z_scale
@@ -493,8 +502,6 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
             face_list.extend([current_face])
 
             normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-1], vertecies_list[0])
-            if current_angle > 360:
-                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
             normal_list.extend([normal_vector])
             normal_reference.append(i + 1 + normal_count)
 
@@ -505,6 +512,8 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
             face_list.extend([current_face])
 
             normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-1], vertecies_list[2 * side_count])
+            if current_angle > 360:
+                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
             normal_list.extend([normal_vector])
             normal_reference.append(i + 1 + normal_count)
         
@@ -514,20 +523,40 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
     #adds top and bottom faces
     if is_hollow == False:
 
+        #top
+
         normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-4], vertecies_list[0])
-        normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
-        normal_list.extend([normal_vector])
-        normal_reference.append(side_count + 1 + normal_count)
-
-
-        normal_vector = calc_normals(vertecies_list[-1], vertecies_list[-3], vertecies_list[1])
         normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
         normal_list.extend([normal_vector])
+
+        for i in range(side_count - 1):
+
+          normal_reference.append(side_count + 1 + normal_count) 
+          current_face = (top_face[-1], top_face[i], top_face[i + 1])
+          face_list.extend([current_face])
+
+        normal_reference.append(side_count + 1 + normal_count)  
+        current_face = (top_face[-1], top_face[-2], top_face[0])
+        face_list.extend([current_face])
+
+
+        #bottom
+
+        normal_vector = calc_normals(vertecies_list[-1], vertecies_list[-3], vertecies_list[1])
+        normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+        normal_list.extend([normal_vector])
+
+        for i in range(side_count - 1):
+
+          normal_reference.append(side_count + 2 + normal_count) 
+          current_face = (bottom_face[-1], bottom_face[i], bottom_face[i + 1])
+          face_list.extend([current_face])
+
         normal_reference.append(side_count + 2 + normal_count)
+        current_face = (bottom_face[-1], bottom_face[-2], bottom_face[0])
+        face_list.extend([current_face])
 
 
-        face_list.extend([top_face])
-        face_list.extend([bottom_face])
 
     if is_hollow == True:
          
@@ -561,8 +590,8 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
         current_face = (bottom_face[side_count - 1], bottom_face[0], bottom_face[side_count], bottom_face[2 * side_count - 1])
         face_list.extend([current_face])
 
-
-    for i in range(revolutions * revolutions * side_count + 2):
+    #textures
+    for i in range(side_count * 2 + side_count * revolutions):
 
         texture_map_val = (1/(i+1)**2, 1/(i+1))
         texture_list.extend([texture_map_val])
@@ -570,8 +599,8 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
     
     if is_hollow ==False:
-        vertex_count += 2 * side_count
-        texture_count += side_count + 2
+        vertex_count += 2 * side_count + 2
+        texture_count += side_count * 3
         normal_count += side_count + 2
     else:
         vertex_count += 4 * side_count
