@@ -453,7 +453,7 @@ def rotations(event):
         normalised_theta_z += 360
     normalised_theta_z /= 90
 
-    deltaz = - current_pos[0] + mousexz[0] + priordeltas[0]
+    deltaz = current_pos[0] + mousexz[0] + priordeltas[0]
 
     if normalised_theta_z >= 1 and normalised_theta_z < 3:
         deltay = current_pos[1] - mousexz[1] + priordeltas[1]
@@ -461,9 +461,9 @@ def rotations(event):
         deltay = - current_pos[1] + mousexz[1] + priordeltas[1]
 
     if normalised_theta_z >= 0 and normalised_theta_z < 2:
-        deltax = - current_pos[1] + mousexz[1] + priordeltas[1]
-    elif normalised_theta_z >= 2 and normalised_theta_z < 4:
         deltax = current_pos[1] - mousexz[1] + priordeltas[1]
+    elif normalised_theta_z >= 2 and normalised_theta_z < 4:
+        deltax = - current_pos[1] + mousexz[1] + priordeltas[1]
 
     side_ratio = abs(cos(2* pi* theta_z / 360))
 
