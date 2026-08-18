@@ -1,4 +1,4 @@
-from math import *
+from math import cos, sin, pi, sqrt
 
 folderpath = ''
 filepath = ''
@@ -6,7 +6,6 @@ filepath = ''
 object_count = 0
 vertex_count = 0
 texture_count = 0
-normal_count = 0
 global_rotation = [0,0,0]
 
 
@@ -98,9 +97,9 @@ def maxtrix_transformation(transformation, vector):
 
     output_vector = [0, 0, 0]
 
-    output_vector[0] = transformation[0][0] * vector[0] + transformation[1][0] * vector[1] + transformation[2][0] * vector[2]
-    output_vector[1] = transformation[0][1] * vector[0] + transformation[1][1] * vector[1] + transformation[2][1] * vector[2]
-    output_vector[2] = transformation[0][2] * vector[0] + transformation[1][2] * vector[1] + transformation[2][2] * vector[2] 
+    output_vector[0] = transformation[0][0] * vector[0] + transformation[0][1] * vector[1] + transformation[0][2] * vector[2]
+    output_vector[1] = transformation[1][0] * vector[0] + transformation[1][1] * vector[1] + transformation[1][2] * vector[2]
+    output_vector[2] = transformation[2][0] * vector[0] + transformation[2][1] * vector[1] + transformation[2][2] * vector[2] 
 
     return output_vector
 
