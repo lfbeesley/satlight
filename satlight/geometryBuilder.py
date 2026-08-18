@@ -407,7 +407,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
 
 
-        if i > (side_count * revolutions):
+        if i == (side_count * revolutions):
             x = 0
             y = 0
             z = (height / 2) * z_scale
