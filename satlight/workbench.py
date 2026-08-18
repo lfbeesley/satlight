@@ -6,6 +6,8 @@ theta_x = 0
 theta_y = 0
 theta_z = 0
 vertex_list = []
+normal_list = []
+normal_index = []
 faces = []
 x_range = [0, 0]
 y_range = [0, 0]
@@ -23,7 +25,7 @@ total_shift = [0, 0]
 shift_delta_x = 0
 shift_delta_z = 0
 
-component_type = [] #1 subassembly     2 prism     3 parabola       0 errors or deleted
+component_type = [] #1 subassembly     2 prism     3 parabola       0 errors        code*10 for deleted
 subassembly_path = []
 subassembly_name = []
 component_settings = []
@@ -63,6 +65,8 @@ def load_model(file):
     global y_range
     global z_range
     global vertex_list
+    global normal_list
+    global normal_index
     global faces
 
     x_range = [0, 0]
@@ -73,6 +77,9 @@ def load_model(file):
 
         vertex_list = []
         face_list = []
+        normal_list = []
+        normal_index = []
+
         
         lines = f.readlines()
 
@@ -128,17 +135,49 @@ def load_model(file):
 
                 vertex_list.extend([vertex])
 
-            elif line.find("f") != -1:
+
+            elif line.find('vn ') != -1:
+
+                normal = []
+                digit = ''
+                space_count = 0
+
+                for char in line:
+                    if char == ' ' or char == '\n':
+                        space_count += 1
+                        try:
+                            normal.append(float(digit))
+                            digit = ""
+                        except:
+                            pass
+
+                    elif space_count > 0:
+                        try:
+                            digit += str(int(char))
+                        except:
+                            if char == '.':
+                                digit += char
+                            elif char == '-':
+                                digit += char
+                            elif char == 'e':
+                                digit += char
+
+                normal_list.append(normal)
+
+
+
+            elif line.find("f ") != -1:
 
                 
                 space_count = 0
                 index_location = 0
                 face = ""
+                normal_pointer = ""
                 corners = []
 
                 for char in line:
 
-                    if char == " ":
+                    if char == " " or char == '\n':
 
                         try:
                             corners.append(float(face))
@@ -152,25 +191,48 @@ def load_model(file):
 
                         index_location += 1
 
-                    else:
-                        if index_location == 0 and space_count != 0:
+                    elif index_location == 0 and space_count != 0:
+                        face += char
 
-                            face += char
+                    elif index_location == 2 and space_count == 1:
+                        normal_pointer += char
+
 
                 face_list.extend([corners])
+                normal_index.append(int(normal_pointer))
 
 
     return vertex_list, face_list
 
+def dot_product(vec1, vec2):
+
+    dot = vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2]
+    return dot
+
+
+
+def hex_generator(illumination):
+
+    value = illumination * 255
+    if value > 128:
+        value = round(value - ((value - 128) / 3))
+    elif value < 128:
+        value = round(value + ((128 - value) / 4))
+    digit = str(hex(value))[2:]
+    if len(digit) == 1:
+        digit = "0" + digit
+
+    hexcode = "#" + digit + digit + digit
+    return hexcode
 
 def draw_points():
-
-
 
     global theta_x
     global theta_y
     global theta_z
     global vertex_list
+    global normal_index
+    global normal_list
     global faces
     global x_range
     global y_range
@@ -183,6 +245,9 @@ def draw_points():
     distance = 2
 
     drawn_points = []
+    mean_depth = []
+    mean_depth_index = []
+    corrected_vertex = []
     canvas.delete('all')
 
 
@@ -232,12 +297,11 @@ def draw_points():
             ordered_scales[1] = x_size
             ordered_scales[0] = y_size
 
-
+    render_type = render_config.get()
 
     for i in range(len(vertex_list)):
 
-        vertex = vertex_list[i]
-
+        vertex = vertex_list[i]      
 
         if theta_x != 0:
             vertex = geometryBuilder.x_rotation(theta_x,vertex)
@@ -252,30 +316,97 @@ def draw_points():
         y = vertex[1] + distance / 2 + distance * 2 * ordered_scales[2]
 
         vertex = [x,y,z]
+        corrected_vertex.append(vertex)
 
         display_vertex = parallax_correction(vertex)
 
         display_vertex[0] += window_size / 2
         display_vertex[1] += window_size / 2
-        drawn_points.extend([display_vertex])
-        #canvas.create_line(display_vertex[0], display_vertex[1], display_vertex[0] + 1, display_vertex[1] + 1, fill = "red", width=4)
+        drawn_points.append(display_vertex)
+        #render vertecies
+        if render_type == 1:
+            canvas.create_line(display_vertex[0], display_vertex[1], display_vertex[0] + 1, display_vertex[1] + 1, fill = "red", width=2)
         
+    #render edges
+    if render_type == 2:
+        for j in range(len(faces)):
 
-    for j in range(len(faces)):
+            lines = faces[j]
 
-        lines = faces[j]
+            for k in range(len(lines) - 1):
+                pos1 = int(lines[k]) - 1
+                pos2 = int(lines[k + 1]) - 1
+                coord1 = drawn_points[pos1]
+                coord2 = drawn_points[pos2]
+                canvas.create_line(coord1[0], coord1[1], coord2[0], coord2[1], fill = "blue", width = 2)
 
-        for k in range(len(lines) - 1):
-            pos1 = int(lines[k]) - 1
-            pos2 = int(lines[k + 1]) - 1
-            coord1 = drawn_points[pos1]
-            coord2 = drawn_points[pos2]
-            canvas.create_line(coord1[0], coord1[1], coord2[0], coord2[1], fill = "blue")
+                if k == (len(lines) - 2):
+                    pos0 = int(lines[0]) - 1
+                    coord1 = drawn_points[pos0]
+                    canvas.create_line(coord1[0], coord1[1], coord2[0], coord2[1], fill = "blue", width = 2)
 
-            if k == (len(lines) - 2):
-                pos0 = int(lines[0]) - 1
-                coord1 = drawn_points[pos0]
-                canvas.create_line(coord1[0], coord1[1], coord2[0], coord2[1], fill = "blue")
+    #render faces
+    if render_type == 3:
+        #find depth
+        for k in range(len(faces)):
+
+            lines = faces[k]
+
+            if len(lines) == 3:
+                coords1 = corrected_vertex[int(lines[0])-1]
+                coords2 = corrected_vertex[int(lines[1])-1]
+                coords3 = corrected_vertex[int(lines[2])-1]
+                mean_depth.append((coords1[1] + coords2[1] + coords3[1]) / 4)
+                mean_depth_index.append(k)
+
+            if len(lines) == 4:
+                coords1 = corrected_vertex[int(lines[0])-1]
+                coords2 = corrected_vertex[int(lines[1])-1]
+                coords3 = corrected_vertex[int(lines[2])-1]
+                coords4 = corrected_vertex[int(lines[3])-1]
+                mean_depth.append((coords1[1] + coords2[1] + coords3[1] + coords4[1]) / 4)
+                mean_depth_index.append(k)
+
+        #order depths
+        try:
+            mean_depth, mean_depth_index = zip(*sorted(zip(mean_depth, mean_depth_index)))
+        except:
+            pass
+
+        #draws faces
+        for j in range(len(faces)):
+        
+            furthest = len(mean_depth_index)
+            face_index = mean_depth_index[furthest - j - 1]
+            lines = faces[face_index]
+            norm = normal_index[face_index]
+            normal = normal_list[norm - 1]
+
+            if theta_x != 0:
+                normal = geometryBuilder.x_rotation(theta_x, normal)
+            if theta_y != 0:
+                normal = geometryBuilder.y_rotation(theta_y, normal)
+            if theta_z != 0:
+                normal = geometryBuilder.z_rotation(theta_z, normal)
+
+            direction = dot_product(normal, [0, -1, 0])
+
+            if direction > 0.001:
+                shade = hex_generator(direction)
+
+                if len(lines) == 3:
+                    coords1 = drawn_points[int(lines[0])-1]
+                    coords2 = drawn_points[int(lines[1])-1]
+                    coords3 = drawn_points[int(lines[2])-1]
+                    canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1],fill=shade)
+
+                if len(lines) == 4:
+                    coords1 = drawn_points[int(lines[0])-1]
+                    coords2 = drawn_points[int(lines[1])-1]
+                    coords3 = drawn_points[int(lines[2])-1]
+                    coords4 = drawn_points[int(lines[3])-1]
+                    canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1], coords4[0],coords4[1],fill=shade)
+
 
 
 def next_frame():
@@ -484,6 +615,8 @@ def create_geometry():
 
             try:
                 geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                geometryBuilder.parabola_geometry(name = '', radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] - 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
+                geometryBuilder.prism_geometry(name = '',side_count = typesetting[3], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] - 0.0005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
             except:
                 popup = tk.Toplevel()
                 popup.title("Error")
@@ -1112,7 +1245,7 @@ hollow_check.place(x = 215, y = 495)
 tk.Label(UI, text = "Wall thickness:").place(x = 285, y = 495)
 wall_thickness_entry = tk.Entry(UI, width = 15)
 wall_thickness_entry.place(x = 375, y = 497)
-
+ 
 
 
 #add dish
@@ -1139,8 +1272,14 @@ tk.Label(UI, text = "Fidelity:").place(x = 165, y = 630)
 dish_fidelity_entry = tk.Entry(UI, width = 15)
 dish_fidelity_entry.place(x = 215, y = 632)
 
-
-
+#render options
+render_config = tk.IntVar(UI, 3)
+vertecies_select = tk.Radiobutton(UI, text = "Vertecies", value = 1, variable = render_config)
+vertecies_select.place(x = 5, y = 680)
+edges_selected = tk.Radiobutton(UI, text = "Edges", value = 2, variable = render_config)
+edges_selected.place(x = 5, y = 700)
+faces_selected = tk.Radiobutton(UI, text = "Faces", value = 3, variable = render_config)
+faces_selected.place(x = 5, y = 720)
 
 
 next_frame()
