@@ -348,40 +348,13 @@ def draw_points():
     #render faces
     if render_type == 3:
         #find depth
+        direction_list = []
+
         for k in range(len(faces)):
 
             lines = faces[k]
 
-            if len(lines) == 3:
-                coords1 = corrected_vertex[int(lines[0])-1]
-                coords2 = corrected_vertex[int(lines[1])-1]
-                coords3 = corrected_vertex[int(lines[2])-1]
-                mean_depth.append((coords1[1] + coords2[1] + coords3[1]) / 3)
-                mean_depth_index.append(k)
-
-            if len(lines) == 4:
-                coords1 = corrected_vertex[int(lines[0])-1]
-                coords2 = corrected_vertex[int(lines[1])-1]
-                coords3 = corrected_vertex[int(lines[2])-1]
-                coords4 = corrected_vertex[int(lines[3])-1]
-                mean_depth.append((coords1[1] + coords2[1] + coords3[1] + coords4[1]) / 4)
-                mean_depth_index.append(k)
-
-        #order depths
-        try:
-            mean_depth, mean_depth_index = zip(*sorted(zip(mean_depth, mean_depth_index)))
-        except:
-            pass
-
-        #draws faces
-        for j in range(len(faces)):
-        
-            furthest = len(mean_depth_index)
-            face_index = mean_depth_index[furthest - j - 1]
-            lines = faces[face_index]
-            norm = normal_index[face_index]
-            normal = normal_list[norm - 1]
-
+            normal = normal_list[normal_index[k] - 1]
             if theta_x != 0:
                 normal = geometryBuilder.x_rotation(theta_x, normal)
             if theta_y != 0:
@@ -390,22 +363,52 @@ def draw_points():
                 normal = geometryBuilder.z_rotation(theta_z, normal)
 
             direction = dot_product(normal, [0, -1, 0])
+            direction_list.append(direction)
 
-            if direction > 0.001:
-                shade = hex_generator(direction)
+            if direction > 0:
+
+                mean_depth_index.append(k)
 
                 if len(lines) == 3:
-                    coords1 = drawn_points[int(lines[0])-1]
-                    coords2 = drawn_points[int(lines[1])-1]
-                    coords3 = drawn_points[int(lines[2])-1]
-                    canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1],fill=shade)
+                    coords1 = corrected_vertex[int(lines[0])-1]
+                    coords2 = corrected_vertex[int(lines[1])-1]
+                    coords3 = corrected_vertex[int(lines[2])-1]
+                    mean_depth.append((coords1[1] + coords2[1] + coords3[1]) / 3)
+                elif len(lines) == 4:
+                    coords1 = corrected_vertex[int(lines[0])-1]
+                    coords2 = corrected_vertex[int(lines[1])-1]
+                    coords3 = corrected_vertex[int(lines[2])-1]
+                    coords4 = corrected_vertex[int(lines[3])-1]
+                    mean_depth.append((coords1[1] + coords2[1] + coords3[1] + coords4[1]) / 4)
 
-                if len(lines) == 4:
-                    coords1 = drawn_points[int(lines[0])-1]
-                    coords2 = drawn_points[int(lines[1])-1]
-                    coords3 = drawn_points[int(lines[2])-1]
-                    coords4 = drawn_points[int(lines[3])-1]
-                    canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1], coords4[0],coords4[1],fill=shade)
+        #order depths
+        try:
+            mean_depth, mean_depth_index = zip(*sorted(zip(mean_depth, mean_depth_index)))
+        except:
+            pass
+
+        furthest = len(mean_depth_index)
+        #draws faces
+        for j in range(furthest):
+        
+            face_index = mean_depth_index[furthest - j - 1]
+            lines = faces[face_index]
+            
+            direction = direction_list[face_index]
+            shade = hex_generator(direction)
+
+            if len(lines) == 3:
+                coords1 = drawn_points[int(lines[0])-1]
+                coords2 = drawn_points[int(lines[1])-1]
+                coords3 = drawn_points[int(lines[2])-1]
+                canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1],fill=shade)
+            elif len(lines) == 4:
+                coords1 = drawn_points[int(lines[0])-1]
+                coords2 = drawn_points[int(lines[1])-1]
+                coords3 = drawn_points[int(lines[2])-1]
+                coords4 = drawn_points[int(lines[3])-1]
+                canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1], coords4[0],coords4[1],fill=shade)
+
 
 
 
