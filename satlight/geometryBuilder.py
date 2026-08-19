@@ -1,18 +1,23 @@
 from math import cos, sin, pi, sqrt
+import os
 
 folderpath = ''
 filepath = ''
+material_file = ''
 
 object_count = 0
 vertex_count = 0
 texture_count = 0
 global_rotation = [0,0,0]
+filename = ''
 
 
 def setup(folder, name, x_rotation = 0, y_rotation = 0, z_rotation = 0):
 
     global filepath
     global folderpath
+    global filename
+    global material_file
 
     global vertex_count
     global texture_count
@@ -23,15 +28,22 @@ def setup(folder, name, x_rotation = 0, y_rotation = 0, z_rotation = 0):
     normal_count = 0
     
     folderpath = folder
+    filename = name
 
     filepath = folder + name + '.obj'
-    open (filepath, "w")
+    material_file = folder + name + '.mtl'
+
+    with open(filepath, "w") as file:
+        file.write('mtllib ' + filename + '.mtl\n')
+
+    open(material_file, "w")
 
     global_rotation = x_rotation, y_rotation, z_rotation
 
 
 def filewrite(datapoints, datacode):
 
+    global filename
     data_type = str(datacode) + " "
     data_list = ""
 
@@ -55,13 +67,38 @@ def filewrite(datapoints, datacode):
 
 
 
-def facewrite(datapoints, datacode, textures, normals):
+def mtlwrite(material):
+    global material_file
+
+    material_info = ''
+    lib = os.path.dirname(__file__) + "\\Material_Library.txt"
+
+    with open(lib) as file:
+        lines = file.readlines()
+        line_count = 0
+        for line in lines:
+            if line.find(material) != -1:
+                material_info += "\n"
+                for i in range(line_count, line_count + 9):
+                    material_info += lines[i]
+                break
+            line_count += 1
+    material_info += "\n"
+    with open(material_file, "a") as matfile:
+        matfile.writelines(material_info)
+
+
+
+                
+
+def facewrite(datapoints, datacode, textures, normals, material):
 
     data_type = str(datacode) + " "
     data_list = ""
 
     with open(filepath, "a") as file:
-
+        file.write("usemtl " + material + "\n")
+        mtlwrite(material)
         file.write("s 1 \n")
         #write data
         for i in range(len(datapoints)):
@@ -79,7 +116,7 @@ def facewrite(datapoints, datacode, textures, normals):
         file.write(data_list)
 
 
-def add_feature(vertecies, texture_coords, texture_index, normals, normal_index, faces, name):
+def add_feature(vertecies, texture_coords, texture_index, normals, normal_index, faces, name, material):
 
     global object_count
 
@@ -90,7 +127,7 @@ def add_feature(vertecies, texture_coords, texture_index, normals, normal_index,
     filewrite(vertecies, "v")
     filewrite(normals, "vn")
     filewrite(texture_coords, "vt")
-    facewrite(faces, "f", texture_index, normal_index)
+    facewrite(faces, "f", texture_index, normal_index, material)
 
 
 def maxtrix_transformation(transformation, vector):
@@ -358,6 +395,9 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 
                 object_lines.append(face_line)
 
+            else:
+                object_lines.append(line)
+
         with open(filepath, "a") as writefile:
 
             for i in range(len(object_lines)):
@@ -372,7 +412,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
     
 
 #calculate geometry
-def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = False, wall_thickness = 0, x_scale = 1, y_scale = 1, z_scale = 1, x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
+def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = False, wall_thickness = 0, material = "MLI", x_scale = 1, y_scale = 1, z_scale = 1, x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
 
     global vertex_count
     global texture_count
@@ -592,7 +632,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
     #textures
     for i in range(side_count * 2 + side_count * revolutions):
 
-        texture_map_val = (1/(i+1)**2, 1/(i+1))
+        texture_map_val = (1, 1)
         texture_list.extend([texture_map_val])
         texture_reference.append(i + 1 + texture_count)
 
@@ -608,9 +648,9 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
     
     
 
-    add_feature(vertecies_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name)
+    add_feature(vertecies_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name, material)
 
-def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
+def parabola_geometry(name, radius, height, segments, fidelity = 100, material = "Aluminium", x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
     
     global vertex_count
     global normal_count
@@ -712,7 +752,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
     #textures
     for i in range(fidelity * segments):
 
-        texture_map_val = (1/(i+1)**2, 1/(i+1))
+        texture_map_val = (1, 1)
         texture_list.extend([texture_map_val])
         texture_reference.append(i + 1 + texture_count)
 
@@ -720,4 +760,4 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, x_angle = 
     normal_count += fidelity * segments
     texture_count += fidelity * segments
 
-    add_feature(vertex_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name)
+    add_feature(vertex_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name, material)
