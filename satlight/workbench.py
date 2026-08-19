@@ -1245,7 +1245,7 @@ tk.Label(UI, text = "Note: x scale acts as the overall scale factor for the inse
 #materials
 
 material_list = []
-lib = os.path.dirname(__file__) + "\\Material_Library.txt"
+lib = os.path.dirname(__file__) + "\\materialLibrary.txt"
 with open(lib) as file:
     lines = file.readlines()
     for line in lines:
