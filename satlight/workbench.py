@@ -1,5 +1,7 @@
 from math import cos, inf, pi
+import os
 import tkinter as tk
+from turtle import width
 from satlight import geometryBuilder
 
 theta_x = 0
@@ -606,7 +608,7 @@ def create_geometry():
         elif component_type[i] == 2:
 
             try:
-                geometryBuilder.prism_geometry(name = typesetting[0], side_count = typesetting[1], radius = typesetting[2], height = typesetting[3], taper = typesetting[4], is_hollow = typesetting[5], wall_thickness = typesetting[6], x_scale = setting[0], y_scale = setting[1], z_scale = setting[2], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                geometryBuilder.prism_geometry(name = typesetting[0], side_count = typesetting[1], radius = typesetting[2], height = typesetting[3], taper = typesetting[4], is_hollow = typesetting[5], wall_thickness = typesetting[6], material = typesetting[7], x_scale = setting[0], y_scale = setting[1], z_scale = setting[2], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
             except:
                 popup = tk.Toplevel()
                 popup.title("Error")
@@ -617,9 +619,9 @@ def create_geometry():
         elif component_type[i] == 3:
 
             try:
-                geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
-                geometryBuilder.parabola_geometry(name = '', radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] - 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
-                geometryBuilder.prism_geometry(name = '',side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] - 0.0005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8] + (360 / typesetting[4]) / 2)
+                geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] - 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
+                geometryBuilder.prism_geometry(name = typesetting[0],side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] - 0.0005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8] + (360 / typesetting[4]) / 2)
             except:
                 popup = tk.Toplevel()
                 popup.title("Error")
@@ -723,6 +725,8 @@ def load_component():
     global component_type
     global component_settings
     global ishollow
+    global material
+    global material_list
 
     selected = component_number.get()
     item_id = ""
@@ -774,6 +778,7 @@ def load_component():
         add_file.insert(0, setting[1])
         add_name.delete(0, tk.END)
         add_name.insert(0, setting[0])
+        material.set("Select a material")
 
         
         #clear other components
@@ -809,6 +814,7 @@ def load_component():
             hollow_check.deselect()
         wall_thickness_entry.delete(0, tk.END)
         wall_thickness_entry.insert(0, setting[6])
+        material.set(setting[7])
 
 
         #clear other components
@@ -833,6 +839,7 @@ def load_component():
         dish_segments_entry.insert(0, setting[3])
         dish_fidelity_entry.delete(0, tk.END)
         dish_fidelity_entry.insert(0, setting[4])
+        material.set(setting[5])
 
 
         #clear other components
@@ -852,6 +859,7 @@ def add_prism():
     global component_type
     global type_settings
     global ishollow
+    global material
 
     try:
         name = str(prism_name_entry.get())
@@ -886,9 +894,13 @@ def add_prism():
         wallthickness = float(wall_thickness_entry.get())
     except:
         wallthickness = 0.1
+    try:
+        prism_material = material.get()
+    except:
+        prism_material = "MLI"
 
 
-    setting = (name, sidecount, radius, height, taper, hollow, wallthickness)
+    setting = (name, sidecount, radius, height, taper, hollow, wallthickness, prism_material)
     type_settings.append(setting)
 
 
@@ -925,6 +937,7 @@ def add_dish():
 
     global component_type
     global type_settings
+    global material
 
     try:
         name = str(dish_name_entry.get())
@@ -955,9 +968,13 @@ def add_dish():
         fidelity = int(dish_fidelity_entry.get())
     except:
         fidelity = 36
+    try:
+        dish_material = material.get()
+    except:
+        dish_material = "Aluminium"
 
 
-    setting = (name, radius, height, segments, fidelity)
+    setting = (name, radius, height, segments, fidelity, dish_material)
     type_settings.append(setting)
 
 
@@ -970,6 +987,7 @@ def update_component():
     global type_settings
     global component_list
     global component_menu
+    global material
 
     selected = component_number.get()
     item_id = ""
@@ -1079,9 +1097,13 @@ def update_component():
             wallthickness = float(wall_thickness_entry.get())
         except:
             wallthickness = 0.1
+        try:
+            prism_material = material.get()
+        except:
+            prism_material = "MLI"
 
 
-        setting = (name, sidecount, radius, height, taper, hollow, wallthickness)
+        setting = (name, sidecount, radius, height, taper, hollow, wallthickness, prism_material)
         type_settings[id_num] = setting
 
     if type_id == 3:
@@ -1106,8 +1128,12 @@ def update_component():
             fidelity = int(dish_fidelity_entry.get())
         except:
             fidelity = 36
+        try:
+            dish_material = material.get()
+        except:
+            dish_material = "Aluminium"
 
-        setting = (name, radius, height, segments, fidelity)
+        setting = (name, radius, height, segments, fidelity, dish_material)
         type_settings[id_num] = setting
 
 
@@ -1155,6 +1181,7 @@ component_number = tk.StringVar(UI)
 component_number.set("Select a component")
 component_list = []
 component_menu = tk.OptionMenu(UI, component_number, component_list)
+component_menu.config(width = 20)
 component_menu.place(x = 5, y = 120)
 
 tk.Button(UI, text = "Load selected component", width = 20, command = load_component).place(x = 170, y = 120)
@@ -1199,7 +1226,6 @@ z_rotation_input = tk.Entry(UI, width = 15)
 z_rotation_input.place(x = 390, y = 252)
 
 
-
 #add subassembly
 tk.Label(UI, text = "Add subassembly", font = ("Ariel", 12)).place(x = 5, y = 300)
 
@@ -1214,6 +1240,25 @@ add_name.place(x = 75, y = 362)
 tk.Button(UI, text = "Add subassembly", width = 20, command = add_subassembly).place(x = 340, y = 360)
 
 tk.Label(UI, text = "Note: x scale acts as the overall scale factor for the inserted file").place(x = 140, y = 304)
+
+
+#materials
+
+material_list = []
+lib = os.path.dirname(__file__) + "\\Material_Library.txt"
+with open(lib) as file:
+    lines = file.readlines()
+    for line in lines:
+        if line.find("newmtl") != -1:
+            mat = line.split(" ", 1)[1]
+            material_list.append(mat)
+
+tk.Label(UI, text = "Material: ").place(x = 5, y = 280)
+material = tk.StringVar(UI)
+material.set("Select a material")
+material_menu = tk.OptionMenu(UI, material, *material_list)
+material_menu.config(width = 20)
+material_menu.place(x = 55, y = 275)
 
 
 #add prism
