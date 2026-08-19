@@ -23,12 +23,20 @@ BRDF_REGISTRY = {
 class Renderer:
     """ To manage and render the object in blender and perform the ray-casting."""
 
-    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500), solar_constant = 1361, add_earthshine=False, add_shadows=True, brdf='lambertian'):
+    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500), solar_constant = 1361, add_earthshine=False, add_shadows=True, brdf='lambertian', smooth_normals=False, smooth_angle_deg=30.0):
         '''
         obj_path can be either .obj or .stl
         distance_to_observer in m
         Resolution in (x,y)
         sun and obs_directions are normalised
+
+        smooth_normals: scene.ray_cast returns the flat FACE normal, so a
+        tessellated curved surface is shaded as a set of flat mirrors even
+        when the mesh carries smooth/custom vertex normals. For a specular
+        BRDF that turns one continuous glint into a train of discrete
+        flashes, spaced by twice the facet-to-facet normal step. Enabling
+        this interpolates the mesh's own vertex/loop normals at the hit
+        point instead. Default False so existing results are unchanged.
         '''
         # Set constants
         self.obj_path = obj_path
@@ -43,6 +51,9 @@ class Renderer:
         self.earthshine_direction  = None 
         self.add_earthshine = add_earthshine
         self.add_shadows = add_shadows
+        self.smooth_normals = smooth_normals
+        self.smooth_angle_deg = smooth_angle_deg
+        self._smooth_cache = {}
 
         # Set up BRDFs
         if isinstance(brdf, dict):
@@ -54,7 +65,42 @@ class Renderer:
         # Set-up scene
         bpy.ops.wm.read_factory_settings(use_empty=True)
         self.ortho_scale = self._load_and_center_object(self.obj_path)
+        if self.smooth_normals:
+            self._repair_normals(self.smooth_angle_deg)
         self.add_camera()
+
+    def _repair_normals(self, angle_deg=30.0):
+        """Discard authored split normals and recompute them from geometry.
+
+        Several CAD/OBJ exports carry mis-indexed vertex normals: on this
+        Intelsat 1R model the median angle between a corner normal and its own
+        polygon's normal is ~90 deg on the solar panels and 45 deg on the
+        antenna hinges, i.e. the authored data is unusable and shading with it
+        would be worse than using flat faces. Clearing it and re-deriving with
+        an angle threshold restores the intent: smooth across a tessellated
+        curved dish, sharp across a genuine crease.
+        """
+        for o in list(bpy.context.scene.objects):
+            if o.type != 'MESH':
+                continue
+            for other in bpy.context.scene.objects:
+                other.select_set(False)
+            bpy.context.view_layer.objects.active = o
+            o.select_set(True)
+            try:
+                bpy.ops.mesh.customdata_custom_splitnormals_clear()
+            except Exception:
+                pass
+            try:
+                bpy.ops.object.shade_smooth_by_angle(angle=np.radians(angle_deg))
+            except Exception:
+                for p in o.data.polygons:            # older Blender fallback
+                    p.use_smooth = True
+                if hasattr(o.data, 'use_auto_smooth'):
+                    o.data.use_auto_smooth = True
+                    o.data.auto_smooth_angle = np.radians(angle_deg)
+            o.select_set(False)
+        self._smooth_cache = {}
 
     @hide_warnings()
     def _load_and_center_object(self, obj_path):
@@ -105,8 +151,8 @@ class Renderer:
         bpy.context.scene.camera = self.camera_object
         self.camera_object.data.ortho_scale = self.ortho_scale
 
-        self.camera_object.location = mu.Vector((0.0, 0.0, -1.0)) * self.ortho_scale
-
+        self.view_target = self._assembly_center()
+        self.camera_object.location = self.view_target + mu.Vector((0.0, 0.0, -1.0)) * self.ortho_scale
         # Camera looks toward origin: forward = -obs
         # Camera +Z (backward) = obs
         # right = X (along-track), up = Y (cross-track)
@@ -131,6 +177,18 @@ class Renderer:
         self.pixel_size_x = self.ortho_scale / self.resolution_x
         self.pixel_size_y = self.ortho_scale / self.aspect_ratio / self.resolution_y
         self.pixel_area   = self.pixel_size_x * self.pixel_size_y
+
+    def _assembly_center(self):
+        """World bbox centre of the current geometry, whatever attitude or
+        articulation the user has applied. The camera targets this, so the
+        assembly cannot walk out of frame."""
+        bpy.context.view_layer.update()          # matrix_world is stale otherwise
+        pts = [obj.matrix_world @ Vector(c)
+               for obj in bpy.context.scene.objects if obj.type == 'MESH'
+               for c in obj.bound_box]
+        if not pts:
+            return Vector((0., 0., 0.))
+        return (Vector(map(min, zip(*pts))) + Vector(map(max, zip(*pts)))) / 2
     
     def get_object_pixel_bboxes(self):
         """Return list of (x_min, x_max, y_min, y_max) per mesh object."""
@@ -157,6 +215,7 @@ class Renderer:
                 min(self.resolution_y, max(ys) + pad),
             ))
         return bboxes
+
     
     def preview_lvlh_views(self, body_rotation=None):
         """
@@ -345,6 +404,178 @@ class Renderer:
             if o.type == "MESH"
         }
 
+    def _smooth_data(self, obj):
+        """Per-object arrays needed to interpolate shading normals.
+
+        Cached on the mesh name: the topology and the object-space normals are
+        static, only the object's world matrix changes between frames.
+        """
+        me = obj.data
+        key = me.name
+        cached = self._smooth_cache.get(key)
+        if cached is not None:
+            return cached
+
+        me.calc_loop_triangles()
+
+        # Split ("loop"/corner) normals, which respect sharp edges -- essential
+        # here, because plain vertex normals average across a thin slab's face
+        # and its side walls and would tilt a flat panel by ~45 deg. Blender
+        # >=4.1 computes these automatically and exposes mesh.corner_normals;
+        # older versions need the now-removed calc_normals_split() first.
+        loop_normals, use_loops = None, False
+        try:
+            if not hasattr(me, 'corner_normals') and hasattr(me, 'calc_normals_split'):
+                me.calc_normals_split()
+            arr = np.empty(len(me.loops) * 3, dtype=np.float64)
+            if hasattr(me, 'corner_normals'):
+                me.corner_normals.foreach_get('vector', arr)
+            else:
+                me.loops.foreach_get('normal', arr)
+            loop_normals = arr.reshape(-1, 3)
+            use_loops = bool(np.all(np.linalg.norm(loop_normals, axis=1) > 0.5))
+        except Exception:
+            loop_normals, use_loops = None, False
+
+        vert_normals = np.array([v.normal[:] for v in me.vertices], dtype=float)
+        verts = np.array([v.co[:] for v in me.vertices], dtype=float)
+
+        tri_verts, tri_loops, tri_poly = [], [], []
+        for t in me.loop_triangles:
+            tri_verts.append(t.vertices[:])
+            tri_loops.append(t.loops[:])
+            tri_poly.append(t.polygon_index)
+
+        # polygon index -> its triangles, so a ray hit (which reports a polygon)
+        # can be resolved to the specific triangle containing the hit point
+        poly_tris = {}
+        for ti, pi in enumerate(tri_poly):
+            poly_tris.setdefault(pi, []).append(ti)
+
+        # Flat-float per-triangle cache for the hot path. _shading_normal runs
+        # once per ray hit (~10k/frame); numpy on 3-vectors costs more in
+        # overhead than it saves at that size, so precompute everything the
+        # barycentric solve needs as plain Python floats.
+        src_n = loop_normals if use_loops else vert_normals
+        idx_n = tri_loops if use_loops else tri_verts
+        tri_cache = []
+        for ti in range(len(tri_verts)):
+            vi = tri_verts[ti]
+            a = verts[vi[0]]; b = verts[vi[1]]; c = verts[vi[2]]
+            e1 = b - a
+            e2 = c - a
+            d00 = float(e1 @ e1); d01 = float(e1 @ e2); d11 = float(e2 @ e2)
+            den = d00 * d11 - d01 * d01
+            inv_den = (1.0 / den) if abs(den) > 1e-20 else 0.0
+            ni = idx_n[ti]
+            tri_cache.append((
+                float(a[0]), float(a[1]), float(a[2]),
+                float(e1[0]), float(e1[1]), float(e1[2]),
+                float(e2[0]), float(e2[1]), float(e2[2]),
+                d00, d01, d11, inv_den,
+                tuple(float(x) for x in src_n[ni[0]]),
+                tuple(float(x) for x in src_n[ni[1]]),
+                tuple(float(x) for x in src_n[ni[2]]),
+            ))
+
+        data = dict(verts=verts, vert_normals=vert_normals,
+                    loop_normals=loop_normals, use_loops=use_loops,
+                    tri_verts=np.array(tri_verts, dtype=int),
+                    tri_loops=np.array(tri_loops, dtype=int),
+                    tri_poly=np.array(tri_poly, dtype=int),
+                    poly_tris=poly_tris, tri_cache=tri_cache)
+        self._smooth_cache[key] = data
+        return data
+
+    def _cache_object_matrices(self):
+        """Per-frame world-matrix inverses for the smooth-normal path.
+
+        These change only when an object moves, but _shading_normal runs once
+        per ray hit (~10k/frame), so inverting inside it cost two Matrix
+        inversions per hit and dominated the render.
+        """
+        self._matrix_cache = {}
+        for o in bpy.context.scene.objects:
+            if o.type != 'MESH':
+                continue
+            M = o.matrix_world
+            self._matrix_cache[o.name] = (
+                np.array(M.inverted(), dtype=float),                      # world -> object
+                np.array(M.to_3x3().inverted().transposed(), dtype=float),  # object -> world normals
+            )
+
+    def _shading_normal(self, obj, face_index, loc_world, face_normal):
+        """Barycentric-interpolated shading normal at a hit point.
+
+        Plain-float arithmetic throughout: this runs once per ray hit, where
+        numpy's per-call overhead on 3-vectors dominates the actual work.
+        Returns a 3-tuple. Falls back to the geometric face normal if anything
+        is degenerate.
+        """
+        try:
+            d = self._smooth_cache.get(obj.data.name)
+            if d is None:
+                d = self._smooth_data(obj)
+            tris = d['poly_tris'].get(face_index)
+            if not tris:
+                return face_normal
+
+            mc = self._matrix_cache.get(obj.name)
+            if mc is None:
+                M = obj.matrix_world
+                mc = (np.array(M.inverted(), dtype=float),
+                      np.array(M.to_3x3().inverted().transposed(), dtype=float))
+                self._matrix_cache[obj.name] = mc
+            Minv, R = mc
+
+            lx = loc_world.x; ly = loc_world.y; lz = loc_world.z
+            px = Minv[0, 0] * lx + Minv[0, 1] * ly + Minv[0, 2] * lz + Minv[0, 3]
+            py = Minv[1, 0] * lx + Minv[1, 1] * ly + Minv[1, 2] * lz + Minv[1, 3]
+            pz = Minv[2, 0] * lx + Minv[2, 1] * ly + Minv[2, 2] * lz + Minv[2, 3]
+
+            cache = d['tri_cache']
+            best = None
+            best_err = None
+            for ti in tris:
+                (ax, ay, az, e1x, e1y, e1z, e2x, e2y, e2z,
+                 d00, d01, d11, inv_den, n0, n1, n2) = cache[ti]
+                if inv_den == 0.0:
+                    continue
+                vx = px - ax; vy = py - ay; vz = pz - az
+                d20 = vx * e1x + vy * e1y + vz * e1z
+                d21 = vx * e2x + vy * e2y + vz * e2z
+                v = (d11 * d20 - d01 * d21) * inv_den
+                w = (d00 * d21 - d01 * d20) * inv_den
+                u = 1.0 - v - w
+                err = 0.0
+                if u < 0.0: err -= u
+                if v < 0.0: err -= v
+                if w < 0.0: err -= w
+                if best_err is None or err < best_err:
+                    best_err = err
+                    best = (u * n0[0] + v * n1[0] + w * n2[0],
+                            u * n0[1] + v * n1[1] + w * n2[1],
+                            u * n0[2] + v * n1[2] + w * n2[2])
+                    if err <= 1e-9:
+                        break
+
+            if best is None:
+                return face_normal
+
+            bx, by, bz = best
+            nx = R[0, 0] * bx + R[0, 1] * by + R[0, 2] * bz
+            ny = R[1, 0] * bx + R[1, 1] * by + R[1, 2] * bz
+            nz = R[2, 0] * bx + R[2, 1] * by + R[2, 2] * bz
+            nrm = (nx * nx + ny * ny + nz * nz) ** 0.5
+            if nrm < 1e-12:
+                return face_normal
+            nx /= nrm; ny /= nrm; nz /= nrm
+            # keep it on the same side as the geometric normal
+            if nx * face_normal[0] + ny * face_normal[1] + nz * face_normal[2] < 0.0:
+                return (-nx, -ny, -nz)
+            return (nx, ny, nz)
+        except Exception:
+            return face_normal
 
     def _build_patch_template(self, n_rings=40):
         """Build (and cache) the static Driscoll-Healy patch grid + per-patch CERES albedo.
@@ -478,11 +709,10 @@ class Renderer:
         self.distance_to_observer = distance_to_observer
 
         obs = observer_direction.normalized()
-        self.camera_object.location = obs * self.ortho_scale
+        self.view_target = self._assembly_center()
+        self.camera_object.location = self.view_target + obs * self.ortho_scale
 
-        # Vector from camera to origin
-        to_origin = mu.Vector((0,0,0)) - self.camera_object.location
-        to_origin = to_origin.normalized()
+        to_origin = (self.view_target - self.camera_object.location).normalized()
 
         # Build rotation: camera -Z points toward origin
         abs_comps  = [abs(to_origin.x), abs(to_origin.y), abs(to_origin.z)]
@@ -504,6 +734,8 @@ class Renderer:
         depsgraph = bpy.context.evaluated_depsgraph_get()
         ray_cast = bpy.context.scene.ray_cast
         self._cache_brdfs()
+        if self.smooth_normals:
+            self._cache_object_matrices()
  
         cam_matrix = self.camera_object.matrix_world
         ray_dir_world = (cam_matrix.to_3x3() @ Vector((0.0, 0.0, -1.0))).normalized()
@@ -558,6 +790,8 @@ class Renderer:
  
             # Plain floats: numpy on 3-vectors costs more in overhead than it saves.
             nx, ny, nz = normal.x, normal.y, normal.z
+            if self.smooth_normals:
+                nx, ny, nz = self._shading_normal(obj, _face, loc, (nx, ny, nz))
             cos_theta = nx * vx + ny * vy + nz * vz
             if cos_theta <= 0.0:
                 continue

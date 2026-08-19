@@ -2,7 +2,7 @@ import numpy as np
 import os
 import datetime
 from skyfield.api import Loader, wgs84, EarthSatellite
-from sgp4.api import WGS84 as WGS84_gravity
+from sgp4.api import WGS84 as WGS84_gravity, Satrec
 from astropy.constants import R_sun, R_earth, au
 from astropy import units as u
 
@@ -211,6 +211,7 @@ class Geometry():
         plays no part in this.
         """
         sat_pos = np.atleast_2d(self.positions['satellite'].T).T   # (3,) or (3,N)
+        incident = np.atleast_2d(self.incident_vector.T).T         # match sat_pos shape
         d = np.linalg.norm(sat_pos, axis=0)
 
         # Angular radii as seen from the satellite
@@ -219,7 +220,7 @@ class Geometry():
 
         # Angular separation of the Earth's centre from the Sun's centre
         to_earth = -sat_pos / d
-        cos_sep = np.sum(to_earth * self.incident_vector, axis=0)
+        cos_sep = np.sum(to_earth * incident, axis=0)
         theta = np.arccos(np.clip(cos_sep, -1.0, 1.0))
 
         theta = np.atleast_1d(theta)
@@ -262,6 +263,7 @@ class Geometry():
         epoch_base = datetime.datetime(1949, 12, 31, tzinfo=datetime.timezone.utc)
         epoch_days = (epoch - epoch_base).total_seconds() / 86400.0
 
+        satrec = Satrec()
         satrec.sgp4init(
             WGS84_gravity, 'i', 99999, epoch_days,
             0.0, 0.0, 0.0,
