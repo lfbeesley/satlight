@@ -71,7 +71,7 @@ def mtlwrite(material):
     global material_file
 
     material_info = ''
-    lib = os.path.dirname(__file__) + "\\Material_Library.txt"
+    lib = os.path.dirname(__file__) + "\\materialLibrary.txt"
 
     with open(lib) as file:
         lines = file.readlines()
