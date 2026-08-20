@@ -1,7 +1,6 @@
 from math import cos, inf, pi
 import os
 import tkinter as tk
-from turtle import width
 from satlight import geometryBuilder
 
 theta_x = 0
@@ -26,6 +25,8 @@ shift_clicked_pos = [0, 0]
 total_shift = [0, 0]
 shift_delta_x = 0
 shift_delta_z = 0
+rgb_list = []
+rgb_index = []
 
 component_type = [] #1 subassembly     2 prism     3 parabola       0 errors        code*10 for deleted
 subassembly_path = []
@@ -70,10 +71,13 @@ def load_model(file):
     global normal_list
     global normal_index
     global faces
+    global rgb_list
+    global rgb_index
 
     x_range = [0, 0]
     y_range = [0, 0]
     z_range = [0, 0]
+    material_count = 0
 
     with open(file) as f:
 
@@ -202,6 +206,31 @@ def load_model(file):
 
                 face_list.extend([corners])
                 normal_index.append(int(normal_pointer))
+                rgb_index.append(material_count)
+
+            elif line.find("usemtl ") != -1:
+                material_name = line.split(" ", 1)[1]
+                rgb = []
+                material_info = ''
+                lib = file.split(".", 1)[0] + ".mtl"
+
+                with open(lib) as libfile:
+                    lines = libfile.readlines()
+                    line_count = 0
+                    for line in lines:
+                        if line.find(material_name) != -1:
+
+                            material_info = lines[line_count + 3]
+                            r = float(material_info.split(" ", 3)[1])
+                            g = float(material_info.split(" ", 3)[2])
+                            b = float(material_info.split(" ", 3)[3])
+                            rgb.append(r)
+                            rgb.append(g)
+                            rgb.append(b)
+                            rgb_list.append(rgb)
+                            material_count += 1
+                            break
+                        line_count += 1
 
 
     return vertex_list, face_list
@@ -213,18 +242,25 @@ def dot_product(vec1, vec2):
 
 
 
-def hex_generator(illumination):
+def hex_generator(illumination, colour):
 
     value = illumination * 255
     if value > 128:
         value = round(value - ((value - 128) / 3))
     elif value < 128:
-        value = round(value + ((128 - value) / 4))
-    digit = str(hex(value))[2:]
-    if len(digit) == 1:
-        digit = "0" + digit
+        value = round(value + ((128 - value) / 7))
+    rdigit = str(hex(round(colour[0] * value)))[2:]
+    gdigit = str(hex(round(colour[1] * value)))[2:]
+    bdigit = str(hex(round(colour[2] * value)))[2:]
 
-    hexcode = "#" + digit + digit + digit
+    if len(rdigit) == 1:
+        rdigit = "0" + rdigit
+    if len(gdigit) == 1:
+        gdigit = "0" + gdigit
+    if len(bdigit) == 1:
+        bdigit = "0" + bdigit
+
+    hexcode = "#" + rdigit + gdigit + bdigit
     return hexcode
 
 def draw_points():
@@ -242,6 +278,8 @@ def draw_points():
     global current_pos
     global zoom
     global shift
+    global rgb_list
+    global rgb_index
 
     scale = 1000 * zoom
     distance = 2
@@ -395,9 +433,11 @@ def draw_points():
         
             face_index = mean_depth_index[furthest - j - 1]
             lines = faces[face_index]
+            material_type = rgb_index[face_index]
+            colour = rgb_list[material_type - 1]
             
             direction = direction_list[face_index]
-            shade = hex_generator(direction)
+            shade = hex_generator(direction, colour)
 
             if len(lines) == 3:
                 coords1 = drawn_points[int(lines[0])-1]
