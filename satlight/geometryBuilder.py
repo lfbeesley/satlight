@@ -86,9 +86,6 @@ def mtlwrite(material):
     material_info += "\n"
     with open(material_file, "a") as matfile:
         matfile.writelines(material_info)
-
-
-
                 
 
 def facewrite(datapoints, datacode, textures, normals, material):
