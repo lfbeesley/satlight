@@ -85,6 +85,8 @@ def load_model(file):
         face_list = []
         normal_list = []
         normal_index = []
+        rgb_list = []
+        rgb_index = []
 
         
         lines = f.readlines()
@@ -434,7 +436,10 @@ def draw_points():
             face_index = mean_depth_index[furthest - j - 1]
             lines = faces[face_index]
             material_type = rgb_index[face_index]
-            colour = rgb_list[material_type - 1]
+            try:
+                colour = rgb_list[material_type - 1]
+            except:
+                colour = [1, 1, 1]
             
             direction = direction_list[face_index]
             shade = hex_generator(direction, colour)
@@ -1362,7 +1367,7 @@ dish_fidelity_entry.place(x = 215, y = 632)
 
 #render options
 render_config = tk.IntVar(UI, 3)
-vertecies_select = tk.Radiobutton(UI, text = "Vertecies", value = 1, variable = render_config)
+vertecies_select = tk.Radiobutton(UI, text = "Vertices", value = 1, variable = render_config)
 vertecies_select.place(x = 5, y = 680)
 edges_selected = tk.Radiobutton(UI, text = "Edges", value = 2, variable = render_config)
 edges_selected.place(x = 5, y = 700)
