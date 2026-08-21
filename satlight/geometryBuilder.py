@@ -211,6 +211,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
     global texture_count
     global normal_count
     global global_rotation
+    global material_file
 
     object_lines = []
     vertex_track = 0
@@ -220,7 +221,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
     if folder == "":
         folder = folderpath
 
-    target_filepath = folder + file + '.obj'
+    target_filepath = folder + '\\' + file + '.obj'
 
     with open(target_filepath) as file:
 
@@ -392,8 +393,28 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 
                 object_lines.append(face_line)
 
-            else:
+            elif line.find("usemtl ") != -1:
                 object_lines.append(line)
+                material_name = line.split(" ", 1)[1]
+                material_info = ''
+                lib = target_filepath.split(".", 1)[0] + '.mtl'
+
+                with open(lib) as libfile:
+                    lines = libfile.readlines()
+                    line_count = 0
+                    for line in lines:
+                        if line.find(material_name) != -1:
+                            material_info += '\n'
+                            for i in range(line_count, line_count + 9):
+                                material_info += lines[i]
+                            break
+                        line_count += 1
+
+                with open(material_file, 'a') as matfile:
+                    matfile.writelines(material_info)
+
+
+
 
         with open(filepath, "a") as writefile:
 
