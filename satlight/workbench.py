@@ -1,4 +1,4 @@
-from math import cos, inf, pi
+from math import cos, inf, pi, sqrt
 import os
 import tkinter as tk
 from satlight import geometryBuilder
@@ -265,6 +265,7 @@ def hex_generator(illumination, colour):
     hexcode = "#" + rdigit + gdigit + bdigit
     return hexcode
 
+
 def draw_points():
 
     global theta_x
@@ -352,14 +353,15 @@ def draw_points():
         if theta_z != 0:
             vertex = geometryBuilder.z_rotation(theta_z,vertex)
 
-        x = (vertex[0] + x_centre) * scale + shift[0]
-        z = (vertex[2] + z_centre) * scale + shift[1]
-        
         y = vertex[1] + distance / 2 + distance * 2 * ordered_scales[2]
 
-        vertex = [x,y,z]
         corrected_vertex.append(vertex)
 
+        x = (vertex[0] + x_centre) * scale + shift[0]
+        z = (vertex[2] + z_centre) * scale + shift[1]
+
+        vertex = [x,y,z]
+        
         display_vertex = parallax_correction(vertex)
 
         display_vertex[0] += window_size / 2
@@ -415,12 +417,15 @@ def draw_points():
                     coords1 = corrected_vertex[int(lines[0])-1]
                     coords2 = corrected_vertex[int(lines[1])-1]
                     coords3 = corrected_vertex[int(lines[2])-1]
+
                     mean_depth.append((coords1[1] + coords2[1] + coords3[1]) / 3)
+
                 elif len(lines) == 4:
                     coords1 = corrected_vertex[int(lines[0])-1]
                     coords2 = corrected_vertex[int(lines[1])-1]
                     coords3 = corrected_vertex[int(lines[2])-1]
                     coords4 = corrected_vertex[int(lines[3])-1]
+
                     mean_depth.append((coords1[1] + coords2[1] + coords3[1] + coords4[1]) / 4)
 
         #order depths
@@ -455,7 +460,6 @@ def draw_points():
                 coords3 = drawn_points[int(lines[2])-1]
                 coords4 = drawn_points[int(lines[3])-1]
                 canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1], coords4[0],coords4[1],fill=shade)
-
 
 
 
@@ -503,7 +507,7 @@ def rotations(event):
         normalised_theta_z += 360
     normalised_theta_z /= 90
 
-    deltaz = current_pos[0] + mousexz[0] + priordeltas[0]
+    deltaz =  current_pos[0] - mousexz[0] + priordeltas[0]
 
     if normalised_theta_z >= 1 and normalised_theta_z < 3:
         deltay = current_pos[1] - mousexz[1] + priordeltas[1]
