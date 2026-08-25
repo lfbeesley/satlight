@@ -539,8 +539,10 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
         if i != 0 and i != side_count:
 
             j = 2 * i
-
-            current_face = (j - 1 + vertex_count, j + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
+            if current_angle <= 360:
+                current_face = (j - 1 + vertex_count, j + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
+            else:
+                current_face = (j + 1 + vertex_count, j + 2 + vertex_count, j + vertex_count, j - 1 + vertex_count)
             face_list.extend([current_face])
             current_face = []
 
@@ -565,7 +567,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
         #adds interior final rectangle
         if i == 2 * side_count - 1:
             j = 2 * i
-            current_face = (j + 1 + vertex_count, j + 2 + vertex_count, 2 * side_count + 2 + vertex_count, 2 * side_count + 1 + vertex_count)
+            current_face = (2 * side_count + 1 + vertex_count, 2 * side_count + 2 + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
             face_list.extend([current_face])
 
             normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-1], vertecies_list[2 * side_count])
@@ -640,11 +642,11 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
         for i in range(side_count - 1):
 
           normal_reference.append(2 * side_count + 2 + normal_count) 
-          current_face = (bottom_face[i], bottom_face[i + 1], bottom_face[side_count + 1 + i], bottom_face[side_count + i])
+          current_face = (bottom_face[side_count + i], bottom_face[side_count + 1 + i], bottom_face[i + 1], bottom_face[i])
           face_list.extend([current_face])
 
         normal_reference.append(2 * side_count + 2 + normal_count)
-        current_face = (bottom_face[side_count - 1], bottom_face[0], bottom_face[side_count], bottom_face[2 * side_count - 1])
+        current_face = (bottom_face[2 * side_count - 1], bottom_face[side_count], bottom_face[0], bottom_face[side_count - 1])
         face_list.extend([current_face])
 
     #textures
@@ -730,11 +732,11 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
 
             #face list
             if i == 0 and j > 0:
-                current_face = (1 + vertex_count, j + 1 + vertex_count, j + 2 + vertex_count)
+                current_face = (1 + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
                 face_list.extend([current_face])
 
-                normal_vector = calc_normals(vertex_list[0], vertex_list[j], vertex_list[j + 1])
-                normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
+                normal_vector = calc_normals(vertex_list[j + 1], vertex_list[0], vertex_list[j])
+                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
                 normal_list.extend([normal_vector])
                 normal_reference.append(j + normal_count)
 
@@ -743,7 +745,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
                     face_list.extend([current_face])
 
                     normal_vector = calc_normals(vertex_list[0], vertex_list[1], vertex_list[j + 1])
-                    normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+                    normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                     normal_list.extend([normal_vector])
                     normal_reference.append(j + 1 + normal_count)
 
@@ -752,7 +754,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
                 face_list.extend([current_face])
 
                 normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j], vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * i + j + 1])
-                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+                normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                 normal_list.extend([normal_vector])
                 normal_reference.append(fidelity * i + j + normal_count)
                  
@@ -761,7 +763,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
                     face_list.extend([current_face])
 
                     normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * (i - 1) + 1], vertex_list[fidelity * i + j + 1])
-                    normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+                    normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                     normal_list.extend([normal_vector])
                     normal_reference.append(fidelity * i + j + 1+ normal_count)
 
