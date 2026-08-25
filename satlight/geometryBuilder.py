@@ -608,11 +608,11 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
         for i in range(side_count - 1):
 
           normal_reference.append(side_count + 2 + normal_count) 
-          current_face = (bottom_face[-1], bottom_face[i], bottom_face[i + 1])
+          current_face = (bottom_face[i + 1], bottom_face[i], bottom_face[-1])
           face_list.extend([current_face])
 
         normal_reference.append(side_count + 2 + normal_count)
-        current_face = (bottom_face[-1], bottom_face[-2], bottom_face[0])
+        current_face = (bottom_face[0], bottom_face[-2], bottom_face[-1])
         face_list.extend([current_face])
 
 
