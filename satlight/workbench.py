@@ -248,8 +248,8 @@ def hex_generator(illumination, colour):
 
     value = illumination * 255
     if value > 128:
-        value = round(value - ((value - 128) / 3))
-    elif value < 128:
+        value = round(value - ((value - 128) / 10))
+    else:
         value = round(value + ((128 - value) / 7))
     rdigit = str(hex(round(colour[0] * value)))[2:]
     gdigit = str(hex(round(colour[1] * value)))[2:]
@@ -292,7 +292,6 @@ def draw_points():
     mean_depth_index = []
     corrected_vertex = []
     canvas.delete('all')
-
 
     x_size = (abs(x_range[0]) + abs(x_range[1])) / 2
     y_size = (abs(y_range[0]) + abs(y_range[1])) / 2
@@ -358,7 +357,7 @@ def draw_points():
         corrected_vertex.append(vertex)
 
         x = (vertex[0] + x_centre) * scale + shift[0]
-        z = (vertex[2] + z_centre) * scale + shift[1]
+        z = (vertex[2] - z_centre) * scale + shift[1]
 
         vertex = [x,y,z]
         
@@ -460,6 +459,32 @@ def draw_points():
                 coords3 = drawn_points[int(lines[2])-1]
                 coords4 = drawn_points[int(lines[3])-1]
                 canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1], coords4[0],coords4[1],fill=shade)
+
+    for i in range(3):
+        vertex = [0, 0, 0]
+        vertex[i] = 100
+
+        if theta_x != 0:
+            vertex = geometryBuilder.x_rotation(-theta_x,vertex)
+        if theta_y != 0:
+            vertex = geometryBuilder.y_rotation(-theta_y, vertex)
+        if theta_z != 0:
+            vertex = geometryBuilder.z_rotation(theta_z,vertex)
+        
+        y = vertex[1]
+        x = (vertex[0] + 625)
+        z = (- vertex[2] + 125)
+
+        vertex=[x, y, z]
+        
+        if i == 0:
+            axis_colour = "red"
+        elif i == 1:
+            axis_colour = "green"
+        elif i == 2:
+            axis_colour = "blue"
+
+        canvas.create_line(625, 125, vertex[0], vertex[2], fill = axis_colour)
 
 
 
@@ -689,9 +714,8 @@ def update_list(name):
     current_length = len(component_list)
     component_list.append((str(current_length + 1) + "    " + name))
     component_menu.destroy()
-    component_menu = tk.OptionMenu(UI, component_number, *component_list)
+    component_menu = tk.OptionMenu(UI, component_number, *component_list, command = load_component)
     component_menu.place(x = 5, y = 120)
-
 
 
 def save_settings():
@@ -722,7 +746,7 @@ def save_settings():
     except:
         yoffset = 0
     try:
-        zoffset = float(z_offset_input.get())
+        zoffset = - float(z_offset_input.get())
     except:
         zoffset = 0
 
@@ -766,9 +790,42 @@ def add_subassembly():
 
     setting = (subname, subfile)
     type_settings.append(setting)
-   
+  
 
-def load_component():
+def clear_boxes():
+    global component_number
+    global component_list
+
+    x_scale_input.delete(0, tk.END)
+    y_scale_input.delete(0, tk.END)
+    z_scale_input.delete(0, tk.END)
+    x_offset_input.delete(0, tk.END)
+    y_offset_input.delete(0, tk.END)
+    z_offset_input.delete(0, tk.END)
+    x_rotation_input.delete(0, tk.END)
+    y_rotation_input.delete(0, tk.END)
+    z_rotation_input.delete(0, tk.END)
+
+    add_file.delete(0, tk.END)
+    add_name.delete(0, tk.END)
+
+    prism_name_entry.delete(0, tk.END)
+    side_count_entry.delete(0, tk.END)
+    prism_radius_entry.delete(0, tk.END)
+    prism_height_entry.delete(0, tk.END)
+    taper_entry.delete(0, tk.END)
+    hollow_check.deselect()
+    wall_thickness_entry.delete(0, tk.END)
+
+    dish_name_entry.delete(0, tk.END)
+    dish_radius_entry.delete(0, tk.END)
+    dish_height_entry.delete(0, tk.END)
+    dish_segments_entry.delete(0, tk.END)
+    dish_fidelity_entry.delete(0, tk.END)
+
+    component_number.set("Select a component")
+
+def load_component(self):
 
     global component_number
     global component_type
@@ -777,7 +834,10 @@ def load_component():
     global material
     global material_list
 
-    selected = component_number.get()
+
+    clear_boxes()
+    selected = self
+    component_number.set(self)
     item_id = ""
     
     for char in selected:
@@ -797,25 +857,16 @@ def load_component():
     if type_id > 9:
         type_id /= 10
 
-    x_scale_input.delete(0, tk.END)
     x_scale_input.insert(0, setting[0])
-    y_scale_input.delete(0, tk.END)
     y_scale_input.insert(0, setting[1])
-    z_scale_input.delete(0, tk.END)
     z_scale_input.insert(0, setting[2])
 
-    x_offset_input.delete(0, tk.END)
     x_offset_input.insert(0, setting[3])
-    y_offset_input.delete(0, tk.END)
     y_offset_input.insert(0, setting[4])
-    z_offset_input.delete(0, tk.END)
-    z_offset_input.insert(0, setting[5])
+    z_offset_input.insert(0, -setting[5])
 
-    x_rotation_input.delete(0, tk.END)
     x_rotation_input.insert(0, setting[6])
-    y_rotation_input.delete(0, tk.END)
     y_rotation_input.insert(0, setting[7])
-    z_rotation_input.delete(0, tk.END)
     z_rotation_input.insert(0, setting[8])
 
 
@@ -823,84 +874,35 @@ def load_component():
 
     if type_id == 1:
 
-        add_file.delete(0, tk.END)
         add_file.insert(0, setting[1])
-        add_name.delete(0, tk.END)
         add_name.insert(0, setting[0])
         material.set("Select a material")
 
-        
-        #clear other components
-        prism_name_entry.delete(0, tk.END)
-        side_count_entry.delete(0, tk.END)
-        prism_radius_entry.delete(0, tk.END)
-        prism_height_entry.delete(0, tk.END)
-        taper_entry.delete(0, tk.END)
-        hollow_check.deselect()
-        wall_thickness_entry.delete(0, tk.END)
-        dish_name_entry.delete(0, tk.END)
-        dish_radius_entry.delete(0, tk.END)
-        dish_height_entry.delete(0, tk.END)
-        dish_segments_entry.delete(0, tk.END)
-        dish_fidelity_entry.delete(0, tk.END)
-
     if type_id == 2:
 
-        prism_name_entry.delete(0, tk.END)
         prism_name_entry.insert(0, setting[0])
-        side_count_entry.delete(0, tk.END)
         side_count_entry.insert(0, setting[1])
-        prism_radius_entry.delete(0, tk.END)
         prism_radius_entry.insert(0, setting[2])
-        prism_height_entry.delete(0, tk.END)
         prism_height_entry.insert(0, setting[3])
-        taper_entry.delete(0, tk.END)
         taper_entry.insert(0, setting[4])
         hollow = setting[5]
         if hollow == True:
             hollow_check.select()
         else:
             hollow_check.deselect()
-        wall_thickness_entry.delete(0, tk.END)
         wall_thickness_entry.insert(0, setting[6])
         material.set(setting[7])
 
 
-        #clear other components
-        add_file.delete(0, tk.END)
-        add_name.delete(0, tk.END)
-        dish_name_entry.delete(0, tk.END)
-        dish_radius_entry.delete(0, tk.END)
-        dish_height_entry.delete(0, tk.END)
-        dish_segments_entry.delete(0, tk.END)
-        dish_fidelity_entry.delete(0, tk.END)
-
-
     if type_id == 3:
 
-        dish_name_entry.delete(0, tk.END)
         dish_name_entry.insert(0, setting[0])
-        dish_radius_entry.delete(0, tk.END)
         dish_radius_entry.insert(0, setting[1])
-        dish_height_entry.delete(0, tk.END)
         dish_height_entry.insert(0, setting[2])
-        dish_segments_entry.delete(0, tk.END)
         dish_segments_entry.insert(0, setting[3])
-        dish_fidelity_entry.delete(0, tk.END)
         dish_fidelity_entry.insert(0, setting[4])
         material.set(setting[5])
 
-
-        #clear other components
-        add_file.delete(0, tk.END)
-        add_name.delete(0, tk.END)
-        prism_name_entry.delete(0, tk.END)
-        side_count_entry.delete(0, tk.END)
-        prism_radius_entry.delete(0, tk.END)
-        prism_height_entry.delete(0, tk.END)
-        taper_entry.delete(0, tk.END)
-        hollow_check.deselect()
-        wall_thickness_entry.delete(0, tk.END)
 
 
 def add_prism():
@@ -1083,7 +1085,7 @@ def update_component():
     except:
         yoffset = 0
     try:
-        zoffset = float(z_offset_input.get())
+        zoffset = -float(z_offset_input.get())
     except:
         zoffset = 0
 
@@ -1229,11 +1231,11 @@ tk.Button(UI, text = "Generate geometry", width = 20, command = create_geometry)
 component_number = tk.StringVar(UI)
 component_number.set("Select a component")
 component_list = []
-component_menu = tk.OptionMenu(UI, component_number, component_list)
+component_menu = tk.OptionMenu(UI, component_number, component_list, command = load_component)
 component_menu.config(width = 20)
 component_menu.place(x = 5, y = 120)
 
-tk.Button(UI, text = "Load selected component", width = 20, command = load_component).place(x = 170, y = 120)
+tk.Button(UI, text = "Clear inputs", width = 15, command = clear_boxes).place(x = 210, y = 120)
 tk.Button(UI, text = "Save edits to component", width = 21, command = update_component).place(x = 330, y = 120)
 tk.Button(UI, text = "Delete selected component", width = 21, command = delete_component).place(x = 330, y = 150)
 
@@ -1276,23 +1278,22 @@ z_rotation_input.place(x = 390, y = 252)
 
 
 #add subassembly
-tk.Label(UI, text = "Add subassembly", font = ("Ariel", 12)).place(x = 5, y = 300)
+tk.Label(UI, text = "Add subassembly", font = ("Ariel", 12)).place(x = 5, y = 320)
 
-tk.Label(UI, text = "File path:").place(x = 5, y = 330)
+tk.Label(UI, text = "File path:").place(x = 5, y = 350)
 add_file = tk.Entry(UI, width = 50)
-add_file.place(x = 75, y = 332)
+add_file.place(x = 75, y = 352)
 
-tk.Label(UI, text = "File name:").place(x = 5, y = 360)
+tk.Label(UI, text = "File name:").place(x = 5, y = 380)
 add_name = tk.Entry(UI, width = 20)
-add_name.place(x = 75, y = 362)
+add_name.place(x = 75, y = 382)
 
-tk.Button(UI, text = "Add subassembly", width = 20, command = add_subassembly).place(x = 340, y = 360)
+tk.Button(UI, text = "Add subassembly", width = 20, command = add_subassembly).place(x = 340, y = 380)
 
-tk.Label(UI, text = "Note: x scale acts as the overall scale factor for the inserted file").place(x = 140, y = 304)
+tk.Label(UI, text = "Note: x scale acts as the overall scale factor for the inserted file").place(x = 140, y = 324)
 
 
 #materials
-
 material_list = []
 lib = os.path.dirname(__file__) + "\\materialLibrary.txt"
 with open(lib) as file:
@@ -1302,72 +1303,71 @@ with open(lib) as file:
             mat = line.split(" ", 1)[1]
             material_list.append(mat)
 
-tk.Label(UI, text = "Material: ").place(x = 5, y = 280)
+tk.Label(UI, text = "Material: ").place(x = 5, y = 290)
 material = tk.StringVar(UI)
 material.set("Select a material")
 material_menu = tk.OptionMenu(UI, material, *material_list)
 material_menu.config(width = 20)
-material_menu.place(x = 55, y = 275)
+material_menu.place(x = 55, y = 285)
 
 
 #add prism
-tk.Label(UI, text = "Add prism", font = ("Ariel", 12)).place(x = 5, y = 405)
-tk.Button(UI, text = "Add prism", width = 20, command = add_prism).place(x = 340, y = 525)
+tk.Label(UI, text = "Add prism", font = ("Ariel", 12)).place(x = 5, y = 415)
+tk.Button(UI, text = "Add prism", width = 20, command = add_prism).place(x = 340, y = 535)
 
-tk.Label(UI, text = "Name:").place(x = 5, y = 435)
+tk.Label(UI, text = "Name:").place(x = 5, y = 445)
 prism_name_entry = tk.Entry(UI, width = 15)
-prism_name_entry.place(x = 55, y = 437)
+prism_name_entry.place(x = 55, y = 447)
 
-tk.Label(UI, text = "No. sides:").place(x = 5, y = 465)
+tk.Label(UI, text = "No. sides:").place(x = 5, y = 475)
 side_count_entry = tk.Entry(UI, width = 13)
-side_count_entry.place(x = 67, y = 467)
+side_count_entry.place(x = 67, y = 477)
 
-tk.Label(UI, text = "Radius:").place(x = 165, y = 465)
+tk.Label(UI, text = "Radius:").place(x = 165, y = 475)
 prism_radius_entry = tk.Entry(UI, width = 15)
-prism_radius_entry.place(x = 215, y = 467)
+prism_radius_entry.place(x = 215, y = 477)
 
-tk.Label(UI, text = "Height:").place(x = 325, y = 465)
+tk.Label(UI, text = "Height:").place(x = 325, y = 475)
 prism_height_entry = tk.Entry(UI, width = 15)
-prism_height_entry.place(x = 375, y = 467)
+prism_height_entry.place(x = 375, y = 477)
 
-tk.Label(UI, text = "Taper:").place(x = 5, y = 495)
+tk.Label(UI, text = "Taper:").place(x = 5, y = 505)
 taper_entry = tk.Entry(UI, width = 15)
-taper_entry.place(x = 55, y = 497)
+taper_entry.place(x = 55, y = 507)
 
 ishollow = tk.BooleanVar(UI)
-tk.Label(UI, text = "Hollow:").place(x = 165, y = 495)
+tk.Label(UI, text = "Hollow:").place(x = 165, y = 505)
 hollow_check = tk.Checkbutton(UI, variable = ishollow, command = check_hollow)
-hollow_check.place(x = 215, y = 495)
+hollow_check.place(x = 215, y = 505)
 
-tk.Label(UI, text = "Wall thickness:").place(x = 285, y = 495)
+tk.Label(UI, text = "Wall thickness:").place(x = 285, y = 505)
 wall_thickness_entry = tk.Entry(UI, width = 15)
-wall_thickness_entry.place(x = 375, y = 497)
+wall_thickness_entry.place(x = 375, y = 507)
  
 
-
 #add dish
-tk.Label(UI, text = "Add dish", font = ("Ariel", 12)).place(x = 5, y = 540)
-tk.Button(UI, text = "Add dish", width = 20, command = add_dish).place(x = 340, y = 630)
+tk.Label(UI, text = "Add dish", font = ("Ariel", 12)).place(x = 5, y = 550)
+tk.Button(UI, text = "Add dish", width = 20, command = add_dish).place(x = 340, y = 640)
 
-tk.Label(UI, text = "Name:").place(x = 5, y = 570)
+tk.Label(UI, text = "Name:").place(x = 5, y = 580)
 dish_name_entry = tk.Entry(UI, width = 15)
-dish_name_entry.place(x = 55, y = 572)
+dish_name_entry.place(x = 55, y = 582)
 
-tk.Label(UI, text = "Radius:").place(x = 5, y = 600)
+tk.Label(UI, text = "Radius:").place(x = 5, y = 610)
 dish_radius_entry = tk.Entry(UI, width = 15)
-dish_radius_entry.place(x = 55, y = 602) 
+dish_radius_entry.place(x = 55, y = 612) 
 
-tk.Label(UI, text = "Height:").place(x = 165, y = 600)
+tk.Label(UI, text = "Height:").place(x = 165, y = 610)
 dish_height_entry = tk.Entry(UI, width = 15)
-dish_height_entry.place(x = 215, y = 602)
+dish_height_entry.place(x = 215, y = 612)
 
-tk.Label(UI, text = "Segements:").place(x = 5, y = 630)
+tk.Label(UI, text = "Segements:").place(x = 5, y = 640)
 dish_segments_entry = tk.Entry(UI, width = 12)
-dish_segments_entry.place(x = 74, y = 632)
+dish_segments_entry.place(x = 74, y = 642)
 
-tk.Label(UI, text = "Fidelity:").place(x = 165, y = 630)
+tk.Label(UI, text = "Fidelity:").place(x = 165, y = 640)
 dish_fidelity_entry = tk.Entry(UI, width = 15)
-dish_fidelity_entry.place(x = 215, y = 632)
+dish_fidelity_entry.place(x = 215, y = 642)
 
 #render options
 render_config = tk.IntVar(UI, 3)
