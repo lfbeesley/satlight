@@ -13,7 +13,7 @@ filename = ''
 
 
 def setup(folder, name, x_rotation = 0, y_rotation = 0, z_rotation = 0):
-
+    #initialises save files
     global filepath
     global folderpath
     global filename
@@ -30,19 +30,24 @@ def setup(folder, name, x_rotation = 0, y_rotation = 0, z_rotation = 0):
     folderpath = folder
     filename = name
 
+    #initialises obj and mtl files
     filepath = folder + name + '.obj'
     material_file = folder + name + '.mtl'
 
+    #creates obj
+    #references mtl in obj file
     with open(filepath, "w") as file:
         file.write('mtllib ' + filename + '.mtl\n')
 
+    #creates mtl
     open(material_file, "w")
 
+    #sets global rotations
     global_rotation = x_rotation, y_rotation, z_rotation
 
 
 def filewrite(datapoints, datacode):
-
+    #writes data points to obj file - vertecies and normals
     global filename
     data_type = str(datacode) + " "
     data_list = ""
@@ -55,6 +60,7 @@ def filewrite(datapoints, datacode):
             point = datapoints[i]
             datum = ""
 
+            #formatting
             for item in point:
                 if datacode == 'vn':
                     datum += str("{:.4f}".format(item)) + " "
@@ -68,6 +74,7 @@ def filewrite(datapoints, datacode):
 
 
 def mtlwrite(material):
+    #writes the material from materialLibrary to the mtl file
     global material_file
 
     material_info = ''
@@ -77,9 +84,9 @@ def mtlwrite(material):
         lines = file.readlines()
         line_count = 0
         for line in lines:
-            if line.find(material) != -1:
+            if line.find(material) != -1: #finds reference material
                 material_info += "\n"
-                for i in range(line_count, line_count + 9):
+                for i in range(line_count, line_count + 9): #material info has nine lines
                     material_info += lines[i]
                 break
             line_count += 1
@@ -89,14 +96,19 @@ def mtlwrite(material):
                 
 
 def facewrite(datapoints, datacode, textures, normals, material):
+    #writes face data
 
     data_type = str(datacode) + " "
     data_list = ""
 
     with open(filepath, "a") as file:
+        #adds material
         file.write("usemtl " + material + "\n")
         mtlwrite(material)
+
+        #adds shading value
         file.write("s 1 \n")
+
         #write data
         for i in range(len(datapoints)):
 
@@ -104,7 +116,7 @@ def facewrite(datapoints, datacode, textures, normals, material):
             texturepoint = textures[i]
             normalvec = normals[i]
             datum = ""
-
+            #formating
             for item in point:
                 datum += str(item) + "/" + str(texturepoint) + "/" + str(normalvec) + " "
 
@@ -114,13 +126,14 @@ def facewrite(datapoints, datacode, textures, normals, material):
 
 
 def add_feature(vertecies, texture_coords, texture_index, normals, normal_index, faces, name, material):
-
+    #handles the file writing per object
     global object_count
 
     object_count += 1
     with open(filepath, "a") as file:
         file.write("o " + name + "\n")
 
+    #inputs data and datatype
     filewrite(vertecies, "v")
     filewrite(normals, "vn")
     filewrite(texture_coords, "vt")
@@ -128,7 +141,7 @@ def add_feature(vertecies, texture_coords, texture_index, normals, normal_index,
 
 
 def maxtrix_transformation(transformation, vector):
-
+    #3x3 dot 3x1 matrix multiplication
     output_vector = [0, 0, 0]
 
     output_vector[0] = transformation[0][0] * vector[0] + transformation[0][1] * vector[1] + transformation[0][2] * vector[2]
@@ -139,7 +152,7 @@ def maxtrix_transformation(transformation, vector):
 
 
 def x_rotation(theta, vector):
-
+    #sets up transformation matrix for x rotations
     transform = [[1, 0, 0],
                 [0, cos(2 * pi * theta / 360), -sin(2 * pi * theta / 360)],
                 [0, sin(2 * pi * theta / 360), cos(2 * pi * theta / 360)]]
@@ -150,7 +163,7 @@ def x_rotation(theta, vector):
 
 
 def y_rotation(theta, vector):
-
+    #sets up transformation matrix for y rotations
     transform = [[cos(2 * pi * theta / 360), 0, sin(2 * pi * theta / 360)],
                 [0, 1, 0],
                 [-sin(2 * pi * theta / 360), 0, cos(2 * pi * theta / 360)]]
@@ -161,7 +174,7 @@ def y_rotation(theta, vector):
 
 
 def z_rotation(theta, vector):
-
+    #sets up transformation matrix for z rotations
     transform = [[cos(2 * pi * theta / 360), -sin(2 * pi * theta / 360), 0],
                 [sin(2 * pi * theta / 360), cos(2 * pi * theta / 360), 0],
                 [0, 0, 1]]
@@ -172,7 +185,7 @@ def z_rotation(theta, vector):
 
 
 def calc_normals(coords1, coords2, coords3):
-
+    #calculates the normal vector of the face bound by three coordinates
     vec1 = [0, 0, 0]
     vec2 = [0, 0, 0]
     
@@ -204,7 +217,10 @@ def calc_normals(coords1, coords2, coords3):
 
 
 def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
-
+    #reads an object file
+    #applies rotations and offsets
+    #updates obj reference values
+    #writes data to obj file
     global folderpath
     global filepath
     global vertex_count
@@ -228,12 +244,12 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
         lines = file.readlines()
 
         for line in lines:
-            
+            #object name
             if line.find('o ') != -1:
 
                 object_lines.append(line)
 
-
+            #vertecies
             elif line.find('v ') != -1:
 
                 space_count = 0
@@ -245,12 +261,12 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                     if char == ' ':
 
                         space_count += 1
-                        try:
+                        try: #trys adding the point to coordiate
                             coords.append(float(digit))
                             digit = ""
-                        except:
+                        except: #first character 
                             pass
-                    elif space_count > 0:
+                    elif space_count > 0: #character is part of coordinate
                         try:
                             digit += str(int(char))
                         except:
@@ -261,6 +277,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                             elif char == 'e':
                                 digit += char
 
+                #scales
                 x = float(coords[0]) * scale
                 y = float(coords[1]) * scale
                 try:
@@ -271,6 +288,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 vertex = [x, y, z]
 
+                #rotations
                 if x_angle != 0:
                  vertex = x_rotation(x_angle, vertex)
 
@@ -280,20 +298,23 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 if z_angle != 0:
                     vertex = z_rotation(z_angle, vertex)
 
+                #translations
                 vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
 
+                #formating
                 vertex_line = "v " + str("{:.6f}".format(vertex[0])) + " " + str("{:.6f}".format(vertex[1])) + " " + str("{:.6f}".format(vertex[2])) + " " + "\n"
 
                 object_lines.append(vertex_line)
 
                 vertex_track += 1
 
-
+            #texture coordinates
             elif line.find('vt ') != -1:
                
                 object_lines.append(line)
                 texture_track += 1
 
+            #normals
             elif line.find('vn ') != -1:
                 
                 space_count = 0
@@ -305,12 +326,12 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                     if char == ' ':
 
                         space_count += 1
-                        try:
+                        try: #trys adding poit to normal
                             coords.append(float(digit))
                             digit = ""
-                        except:
+                        except: #first character
                             pass
-                    elif space_count > 0:
+                    elif space_count > 0: #character is part of normal
                         try:
                             digit += str(int(char))
                         except:
@@ -330,7 +351,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                     z = float(coords[2])
 
                 normal = [x, y, z]
-
+                #rotations
                 if x_angle != 0:
                     normal = x_rotation(x_angle, normal)
 
@@ -340,21 +361,25 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 if z_angle != 0:
                     normal = z_rotation(z_angle, normal)
 
+                # convert to unit vector
                 normal_leng = sqrt(normal[0] ** 2 + normal[1] ** 2 + normal[2] ** 2)
                 normal[0] = round(normal[0] / normal_leng, 5)
                 normal[1] = round(normal[1] / normal_leng, 5)
                 normal[2] = round(normal[2] / normal_leng, 5)
 
+                #formating
                 vertex_line = "vn " + str("{:.4f}".format(normal[0])) + " " + str("{:.4f}".format(normal[1])) + " " + str("{:.4f}".format(normal[2])) + " " + "\n"
 
                 object_lines.append(vertex_line)
 
                 normal_track += 1
 
+            #shading values
             elif line.find('s ') != -1:
 
                 object_lines.append(line)
 
+            #faces
             elif line.find('f ') != -1:
                 
                 index_location = 0
@@ -364,7 +389,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                 for char in line:
 
                     if char == ' ':
-                        if index_location == 2:
+                        if index_location == 2: #third digit is the normal
                             number = str(int(number) + normal_count)
                             face_line += number
                             number = ''
@@ -372,9 +397,9 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                         index_location = 0
 
                     if char == '/':
-                        if index_location == 0:
+                        if index_location == 0: #first digit is vertex
                             number = str(int(number) + vertex_count)
-                        elif index_location == 1:
+                        elif index_location == 1: #second digit is texture coordinate
                             try:
                                 number = str(int(number) + texture_count)
                             except:
@@ -384,15 +409,16 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                         number = ''
                         index_location += 1
 
-                    try:
+                    try: #tracks numbers
                         number += str(int(char))
                         
-                    except:
+                    except: #adds formatting back in
                         face_line += str(char)
                 
                 
                 object_lines.append(face_line)
 
+            #material references
             elif line.find("usemtl ") != -1:
                 object_lines.append(line)
                 material_name = line.split(" ", 1)[1]
@@ -403,26 +429,27 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                     lines = libfile.readlines()
                     line_count = 0
                     for line in lines:
-                        if line.find(material_name) != -1:
+                        if line.find(material_name) != -1: #finds referenced material
                             material_info += '\n'
-                            for i in range(line_count, line_count + 9):
+                            for i in range(line_count, line_count + 9): #materials have 9 lines of data
                                 material_info += lines[i]
                             break
                         line_count += 1
 
+                #writes material to mtl
                 with open(material_file, 'a') as matfile:
                     matfile.writelines(material_info)
 
 
 
-
+        #write data
         with open(filepath, "a") as writefile:
 
             for i in range(len(object_lines)):
 
                 writefile.write(object_lines[i])
 
-
+    #update references
     vertex_count += vertex_track
     texture_count += texture_track
     normal_count += normal_track
@@ -431,7 +458,10 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
 #calculate geometry
 def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = False, wall_thickness = 0, material = "MLI", x_scale = 1, y_scale = 1, z_scale = 1, x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
-
+    #adds a prism
+    #generates vertecies 
+    #calculates normals
+    #writes data to obj
     global vertex_count
     global texture_count
     global normal_count
@@ -450,6 +480,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
     texture_reference = []
     texture_map_val = []
 
+    #prisms with even number of sides are square to axes, odd number of sides have top vertex
     if side_count % 2 == 0:
         current_angle = theta / 2
     else:
@@ -463,22 +494,55 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
     for i in range(side_count * revolutions + (2 - revolutions)):
 
 
-
+        #calculates vertex - used to create a pair of vertecies separated by the prisms height
         if i == (side_count * revolutions):
+            #centre of top and bottom faces
             x = 0
             y = 0
             z = (height / 2) * z_scale
         elif current_angle >= 360:
+            #interior of hollow prism
             x = (radius - wall_thickness) * cos(2 * pi * current_angle / 360) * x_scale
             y = (radius - wall_thickness) * sin(2 * pi * current_angle / 360) * y_scale
             z = (height / 2) * z_scale
         else:
+            #exterior 
             x = radius * cos(2 * pi * current_angle / 360) * x_scale
             y = radius * sin(2 * pi * current_angle / 360) * y_scale
             z = (height / 2) * z_scale
 
         #top vertex
         vertex = [x / taper, y / taper, z]
+        
+        # part rotations
+        if x_angle != 0:
+            vertex = x_rotation(x_angle, vertex)
+
+        if y_angle != 0:
+            vertex = y_rotation(y_angle, vertex)
+
+        if z_angle != 0:
+            vertex = z_rotation(z_angle, vertex)
+        
+        #translation
+        vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
+
+        #global rotations
+        if global_rotation[0] != 0:
+            vertex = x_rotation(global_rotation[0], vertex)
+
+        if global_rotation[1] != 0:
+            vertex = y_rotation(global_rotation[1], vertex)
+
+        if global_rotation[2] != 0:
+            vertex = z_rotation(global_rotation[2], vertex)
+
+        #add to list
+        vertecies_list.extend([vertex])
+        top_face.append((2 * i + 1) + vertex_count)
+
+        #bottom vertex
+        vertex = [x, y, -z]
         
         #part rotations
         if x_angle != 0:
@@ -489,11 +553,11 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
         if z_angle != 0:
             vertex = z_rotation(z_angle, vertex)
-        
-        #part translation
+
+        #translations
         vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
 
-        #model rotations
+        #global rotations
         if global_rotation[0] != 0:
             vertex = x_rotation(global_rotation[0], vertex)
 
@@ -503,41 +567,14 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
         if global_rotation[2] != 0:
             vertex = z_rotation(global_rotation[2], vertex)
 
-
-        vertecies_list.extend([vertex])
-        top_face.append((2 * i + 1) + vertex_count)
-
-        #bottom vertex
-        vertex = [x, y, -z]
-        
-        if x_angle != 0:
-            vertex = x_rotation(x_angle, vertex)
-
-        if y_angle != 0:
-            vertex = y_rotation(y_angle, vertex)
-
-        if z_angle != 0:
-            vertex = z_rotation(z_angle, vertex)
-
-        vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
-
-        if global_rotation[0] != 0:
-            vertex = x_rotation(global_rotation[0], vertex)
-
-        if global_rotation[1] != 0:
-            vertex = y_rotation(global_rotation[1], vertex)
-
-        if global_rotation[2] != 0:
-            vertex = z_rotation(global_rotation[2], vertex)
-
-
+        #add to list
         vertecies_list.extend([vertex])
         bottom_face.append((2 * i + 2) + vertex_count)
 
 
         #add rectangular faces
         if i != 0 and i != side_count:
-
+        #side faces
             j = 2 * i
             if current_angle <= 360:
                 current_face = (j - 1 + vertex_count, j + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
@@ -554,22 +591,24 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
             normal_reference.append(i + normal_count)
 
 
-        #adds exterior final rectangle
+        #adds exterior sides final rectangle
         if i == side_count - 1:
             j = 2 * i
             current_face = (j + 1 + vertex_count, j + 2 + vertex_count, 2 + vertex_count, 1 + vertex_count)
             face_list.extend([current_face])
 
+            #normals
             normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-1], vertecies_list[0])
             normal_list.extend([normal_vector])
             normal_reference.append(i + 1 + normal_count)
 
-        #adds interior final rectangle
+        #adds interior sides final rectangle
         if i == 2 * side_count - 1:
             j = 2 * i
             current_face = (2 * side_count + 1 + vertex_count, 2 * side_count + 2 + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
             face_list.extend([current_face])
 
+            #normals
             normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-1], vertecies_list[2 * side_count])
             if current_angle > 360:
                 normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
@@ -584,16 +623,18 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
         #top
 
+        #top normal
         normal_vector = calc_normals(vertecies_list[-2], vertecies_list[-4], vertecies_list[0])
         normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
         normal_list.extend([normal_vector])
 
+        #top faces
         for i in range(side_count - 1):
 
           normal_reference.append(side_count + 1 + normal_count) 
           current_face = (top_face[-1], top_face[i], top_face[i + 1])
           face_list.extend([current_face])
-
+        #final top face
         normal_reference.append(side_count + 1 + normal_count)  
         current_face = (top_face[-1], top_face[-2], top_face[0])
         face_list.extend([current_face])
@@ -601,62 +642,73 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
         #bottom
 
+        #bottom normal
         normal_vector = calc_normals(vertecies_list[-1], vertecies_list[-3], vertecies_list[1])
         normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
         normal_list.extend([normal_vector])
 
+        #bottom faces
         for i in range(side_count - 1):
 
           normal_reference.append(side_count + 2 + normal_count) 
           current_face = (bottom_face[i + 1], bottom_face[i], bottom_face[-1])
           face_list.extend([current_face])
 
+        #final bottom face
         normal_reference.append(side_count + 2 + normal_count)
         current_face = (bottom_face[0], bottom_face[-2], bottom_face[-1])
         face_list.extend([current_face])
 
 
-
+    #top and bottom faces for hollow prisms
     if is_hollow == True:
          
         #top
+
+        #top normal
         normal_vector = calc_normals(vertecies_list[0], vertecies_list[2], vertecies_list[2 * side_count])
         normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
         normal_list.extend([normal_vector])
 
+        #top faces
         for i in range(side_count - 1):
 
           normal_reference.append(2 * side_count + 1 + normal_count) 
           current_face = (top_face[i], top_face[i + 1], top_face[side_count + 1 + i], top_face[side_count + i])
           face_list.extend([current_face])
 
+        #final top face
         normal_reference.append(2 * side_count + 1 + normal_count)  
         current_face = (top_face[side_count - 1], top_face[0], top_face[side_count], top_face[2 * side_count - 1])
         face_list.extend([current_face])
 
         #bottom
+
+        #bottom normal
         normal_vector = calc_normals(vertecies_list[1], vertecies_list[3], vertecies_list[2 * side_count + 1])
         normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
         normal_list.extend([normal_vector])
 
+        #bottom faces
         for i in range(side_count - 1):
 
           normal_reference.append(2 * side_count + 2 + normal_count) 
           current_face = (bottom_face[side_count + i], bottom_face[side_count + 1 + i], bottom_face[i + 1], bottom_face[i])
           face_list.extend([current_face])
 
+        #final bottom face
         normal_reference.append(2 * side_count + 2 + normal_count)
         current_face = (bottom_face[2 * side_count - 1], bottom_face[side_count], bottom_face[0], bottom_face[side_count - 1])
         face_list.extend([current_face])
 
-    #textures
+    #textures - generates placeholder texture coordinates
     for i in range(side_count * 2 + side_count * revolutions):
 
         texture_map_val = (1, 1)
         texture_list.extend([texture_map_val])
         texture_reference.append(i + 1 + texture_count)
 
-    
+    #updates references
     if is_hollow ==False:
         vertex_count += 2 * side_count + 2
         texture_count += side_count * 3
@@ -667,11 +719,18 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
         normal_count += 2 * side_count + 2
     
     
-
+    #data to be written
     add_feature(vertecies_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name, material)
 
+
+
 def parabola_geometry(name, radius, height, segments, fidelity = 100, material = "Aluminium", x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
-    
+    #generates parabolas
+    #calculates parabola based on radius and height
+    #calculates vertecies
+    #applies rotations and translations
+    #updates references
+    #writes data to obj
     global vertex_count
     global normal_count
     global texture_count
@@ -690,6 +749,7 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
     texture_list = []
     texture_reference = []
 
+    #centre point
     x = 0 + x_offset
     y = 0 + y_offset
     z = 0 + z_offset
@@ -697,16 +757,16 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
     vertex = (x, y, z)
     vertex_list.extend([vertex])
 
-    for i in range(segments):
-        for j in range(fidelity):
-
+    for i in range(segments): #radius split into segments
+        for j in range(fidelity): #angle split into fidelity
+            #calculates vertex
             x = (i + 1) * segment_spacing * cos(2 * pi * current_angle / 360)
             y = (i + 1) * segment_spacing * sin(2 * pi * current_angle / 360)
             z = a_coeff * ((i + 1) * segment_spacing) ** 2
 
             vertex = (x, y, z)
 
-            #rotation and translation
+            #rotation
             if x_angle != 0:
                 vertex = x_rotation(x_angle, vertex)
 
@@ -716,9 +776,10 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
             if z_angle != 0:
                 vertex = z_rotation(z_angle, vertex)
         
-
+            #translation
             vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
 
+            #global rotation
             if global_rotation[0] != 0:
                 vertex = x_rotation(global_rotation[0], vertex)
 
@@ -731,37 +792,43 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
             vertex_list.extend([vertex])
 
             #face list
-            if i == 0 and j > 0:
+            if i == 0 and j > 0: #adds first ring of triangular faces
                 current_face = (1 + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
                 face_list.extend([current_face])
 
+                #normal
                 normal_vector = calc_normals(vertex_list[j + 1], vertex_list[0], vertex_list[j])
                 normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
                 normal_list.extend([normal_vector])
                 normal_reference.append(j + normal_count)
 
+                #final triangle
                 if j == fidelity - 1:
                     current_face = (1 + vertex_count, 2 + vertex_count, j + 2 + vertex_count)
                     face_list.extend([current_face])
 
+                    #normal
                     normal_vector = calc_normals(vertex_list[0], vertex_list[1], vertex_list[j + 1])
                     normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                     normal_list.extend([normal_vector])
                     normal_reference.append(j + 1 + normal_count)
 
-            if i > 0 and j > 0:
+            if i > 0 and j > 0: #adds all other faces - rectangles
                 current_face = (fidelity * (i - 1) + j + 1 + vertex_count, fidelity * (i - 1) + j + 2 + vertex_count, fidelity * i + j + 2 + vertex_count, fidelity * i + j + 1 + vertex_count)
                 face_list.extend([current_face])
 
+                #normals
                 normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j], vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * i + j + 1])
                 normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                 normal_list.extend([normal_vector])
                 normal_reference.append(fidelity * i + j + normal_count)
-                 
+
+                #final rectangle
                 if j == fidelity - 1:
                     current_face = (fidelity * (i - 1) + j + 2 + vertex_count, fidelity * (i - 1) + 2 + vertex_count, fidelity * i + 2 + vertex_count, fidelity * i + j + 2 + vertex_count)
                     face_list.extend([current_face])
 
+                    #normal
                     normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * (i - 1) + 1], vertex_list[fidelity * i + j + 1])
                     normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                     normal_list.extend([normal_vector])
@@ -769,15 +836,17 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
 
             current_angle += theta
             
-    #textures
+    #textures - generates placeholder texture coordinates
     for i in range(fidelity * segments):
 
         texture_map_val = (1, 1)
         texture_list.extend([texture_map_val])
         texture_reference.append(i + 1 + texture_count)
 
+    #updates references
     vertex_count += fidelity * segments + 1
     normal_count += fidelity * segments
     texture_count += fidelity * segments
 
+    #data to be written 
     add_feature(vertex_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name, material)
