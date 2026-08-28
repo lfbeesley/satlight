@@ -352,6 +352,8 @@ def draw_points():
         if theta_z != 0:
             vertex = geometryBuilder.z_rotation(theta_z,vertex)
 
+        vertex = (-vertex[0], vertex[1], vertex[2])
+
         y = vertex[1] + distance / 2 + distance * 2 * ordered_scales[2]
 
         corrected_vertex.append(vertex)
@@ -467,9 +469,9 @@ def draw_points():
         if theta_x != 0:
             vertex = geometryBuilder.x_rotation(-theta_x,vertex)
         if theta_y != 0:
-            vertex = geometryBuilder.y_rotation(-theta_y, vertex)
+            vertex = geometryBuilder.y_rotation(theta_y, vertex)
         if theta_z != 0:
-            vertex = geometryBuilder.z_rotation(theta_z,vertex)
+            vertex = geometryBuilder.z_rotation(-theta_z,vertex)
         
         y = vertex[1]
         x = (vertex[0] + 625)
@@ -532,7 +534,7 @@ def rotations(event):
         normalised_theta_z += 360
     normalised_theta_z /= 90
 
-    deltaz = current_pos[0] - mousexz[0] + priordeltas[0]
+    deltaz = - current_pos[0] + mousexz[0] + priordeltas[0]
 
     if normalised_theta_z >= 1 and normalised_theta_z < 3:
         deltay = current_pos[1] - mousexz[1] + priordeltas[1]
@@ -738,7 +740,7 @@ def save_settings():
 
 
     try:
-        xoffset = float(x_offset_input.get())
+        xoffset = -float(x_offset_input.get())
     except:
         xoffset = 0
     try:
@@ -825,7 +827,7 @@ def clear_boxes():
 
     component_number.set("Select a component")
 
-def load_component(self):
+def load_component(selected_name):
 
     global component_number
     global component_type
@@ -836,8 +838,8 @@ def load_component(self):
 
 
     clear_boxes()
-    selected = self
-    component_number.set(self)
+    selected = selected_name
+    component_number.set(selected_name)
     item_id = ""
     
     for char in selected:
@@ -861,7 +863,7 @@ def load_component(self):
     y_scale_input.insert(0, setting[1])
     z_scale_input.insert(0, setting[2])
 
-    x_offset_input.insert(0, setting[3])
+    x_offset_input.insert(0, -setting[3])
     y_offset_input.insert(0, setting[4])
     z_offset_input.insert(0, -setting[5])
 
@@ -1077,7 +1079,7 @@ def update_component():
 
 
     try:
-        xoffset = float(x_offset_input.get())
+        xoffset = -float(x_offset_input.get())
     except:
         xoffset = 0
     try:
@@ -1200,6 +1202,22 @@ def check_hollow():
     hollow = ishollow.get()
     return hollow
 
+def force_update_menu():
+
+    global component_list
+    global component_number
+    global component_menu
+
+    component_menu.destroy()
+    component_menu = tk.OptionMenu(UI, component_number, *component_list, command = load_component)
+    component_menu.place(x = 5, y = 120)
+
+def force_load_component():
+    global component_number
+    name = component_number.get()
+    load_component(name)
+
+
 #UI setup
 
 #close
@@ -1239,7 +1257,7 @@ tk.Button(UI, text = "Clear inputs", width = 15, command = clear_boxes).place(x 
 tk.Button(UI, text = "Save edits to component", width = 21, command = update_component).place(x = 330, y = 120)
 tk.Button(UI, text = "Delete selected component", width = 21, command = delete_component).place(x = 330, y = 150)
 
-#   scales translations and rotations
+#scales translations and rotations
 #scales
 tk.Label(UI, text = "x scale:").place(x = 5, y = 190)
 tk.Label(UI, text = "y scale:").place(x = 5, y = 220)
@@ -1378,6 +1396,9 @@ edges_selected.place(x = 5, y = 700)
 faces_selected = tk.Radiobutton(UI, text = "Faces", value = 3, variable = render_config)
 faces_selected.place(x = 5, y = 720)
 
+#fixes
+#tk.Button(UI, text = "Reload menu", width = 15, command = force_update_menu).place(x = 80, y = 680)
+tk.Button(UI, text = "Load component", width = 15, command = force_load_component).place(x = 80, y = 700)
 
 next_frame()
 
