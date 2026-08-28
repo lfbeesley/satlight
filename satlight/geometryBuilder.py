@@ -141,7 +141,7 @@ def add_feature(vertecies, texture_coords, texture_index, normals, normal_index,
 
 
 def maxtrix_transformation(transformation, vector):
-    #3x3 dot 3x1 matrix multiplication
+    #3x3 times 3x1 matrix multiplication
     output_vector = [0, 0, 0]
 
     output_vector[0] = transformation[0][0] * vector[0] + transformation[0][1] * vector[1] + transformation[0][2] * vector[2]
