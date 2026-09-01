@@ -6,7 +6,7 @@ geometryBuilder is a tool to quickly make basic satellite models for use in satl
 Start by setting up the save file for the geometry by calling 'setup()'. This creates the obj and corresponding mtl file used for the object. It also sets up a global rotation which applies to all geometry created in this file.
 The mtl file is only used for graphical uses and is not read by satlight, which instead uses BRDFs. The graphical distinction may be useful when identifying which parts to apply which BRDFs to.
 '''
-'from satlight import geometryBuilder
+from satlight import geometryBuilder
 
 geometryBuilder.setup(
 folder = "models\\saveFolder",          # filepath
@@ -14,7 +14,7 @@ name = "satelliteName",                   # file name
 x_rotation = 0, 
 y_rotation = 0, 
 z_rotation = 0                                    # global rotations x, y, z in degrees about the origin
-)'     
+)    
 '''
 ## Creating geometry
 
@@ -22,7 +22,7 @@ z_rotation = 0                                    # global rotations x, y, z in 
 
 Premade obj files can be read in and added to the new file in the desired size, orientation, and position. 
 '''
-'geometryBuilder.import_model(
+geometryBuilder.import_model(
 file = "componentName"                     # file name
 folder = "Models\\Components"          # filepath, if left blank the save files folder will be used
 scale = 1                                               # scales the model by this factor
@@ -32,7 +32,7 @@ z_angle = 0,                                          # rotations x, y, z in deg
 x_offset = 0, 
 y_offset = 0, 
 z_offset = 0                                          # translations x, y, z in metres from the origin
-)'
+)
 '''
 ### Prisms
 
@@ -41,7 +41,7 @@ Any regular prism can be generated either solid or hollow in the desired size, o
 - Unit cubes have radius $\frac{\sqrt2}{2}$ and height 1
 - Equilateral triangles have radius $\frac{2}{3}$ 
 '''
-'geometryBuilder.prism_geometry(
+geometryBuilder.prism_geometry(
 name = "Cube",    
 side_count = 4,  
 radius = 0.7071,               # in metres
@@ -59,7 +59,7 @@ z_angle = 0,                     # rotations x, y, z in degrees about the origin
 x_offset = 0,
 y_offset = 0, 
 z_offset = 0                     # translations x, y, z in metres from the origin
-)'
+)
 '''
 
 ### Parabolas
@@ -68,7 +68,7 @@ Parabolas can be generated with a desired radius and height as well as orientati
 
 Parabolas are 2 dimensional with the normals pointing out of the interior face. To ensure correct rendering via 'workbench' and 'satlight', it is recommended to generate a second parabola with negative height and position it below the first, as well as a hollow prism with the same number of sides positioned between the parabolas
 '''
-'geometryBuilder.parabola_geometry(
+geometryBuilder.parabola_geometry(
 name = "comms dish", 
 radius = 0.5,                             # in metres
 height = 0.2,                            # in metres
@@ -81,6 +81,6 @@ z_angle = 0,                            # rotations x, y, z in degrees about the
 x_offset = 0, 
 y_offset = 0, 
 z_offset = 0                            # translations x, y, z in metres from the origin
-)'
+)
 '''
 
