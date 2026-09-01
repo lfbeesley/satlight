@@ -105,5 +105,8 @@ geometryBuilder.prism_geometry("Solar panel 2", side_count = 4, radius = 0.7071,
 geometryBuilder.parabola_geometry("Comms dish", radius = 0.3, height = 0.1, segments = 10, fidelity = 18, material = "White_Paint", x_angle = 90, y_offset = -0.5)
 ```
 
-Rendering this object shows a main bus 1x1x1 metres, two 2x1 metre solar panels angled 30 degrees from the observer, and a 0.6 metre antenna.<img width="736" height="310" alt="Box wing satellite" src="https://github.com/user-attachments/assets/938f320f-fc5f-4dd4-88ff-4c614d88fcc8" />
+Rendering this object shows a main bus 1x1x1 metres, two 2x1 metre solar panels angled 30 degrees from the observer, and a 0.6 metre antenna.
+
+
+<img width="736" height="310" alt="Box wing satellite" src="https://github.com/user-attachments/assets/938f320f-fc5f-4dd4-88ff-4c614d88fcc8" />
 
