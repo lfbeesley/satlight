@@ -3,6 +3,7 @@ import os
 import tkinter as tk
 from satlight import geometryBuilder
 
+
 theta_x = 0
 theta_y = 0
 theta_z = 0
@@ -34,6 +35,8 @@ subassembly_name = []
 component_settings = []
 type_settings = []
 
+
+#initalise renderer window
 root = tk.Tk()
 root.title("model render")
 root.geometry(str(window_size) + "x" + str(window_size) + "+500+0")
@@ -41,20 +44,26 @@ canvas = tk.Canvas(root, height = window_size, width = window_size, bg="black")
 
 canvas.pack()
 
+#initialise UI window
 UI = tk.Tk()
 UI.title("UI")
 UI.geometry("500x" + str(window_size) + "+0+0")
 
+
 def parallax_correction(vertex):
+    #scales x and z coordinates based on y depth
+    #returns 2d vector for rendering on the screen
 
     x = vertex[0]
     y = vertex[1]
     z = vertex[2]
 
+    #scaling
     try:
         scale = 1/y
     except:
         scale = inf
+
     x_corrected = x * scale
     z_corrected = z * scale
 
@@ -63,6 +72,7 @@ def parallax_correction(vertex):
 
 
 def load_model(file):
+    #loads data from input file
 
     global x_range 
     global y_range
@@ -93,6 +103,7 @@ def load_model(file):
 
         for line in lines:
 
+            #vertecies
             if line.find('v ') != -1:
 
                 space_count = 0
@@ -104,12 +115,12 @@ def load_model(file):
                     if char == ' ' or char == "\n":
 
                         space_count += 1
-                        try:
+                        try: #adds point to vertex 
                             coords.append(float(digit))
                             digit = ""
                         except:
                             pass
-                    elif space_count > 0:
+                    elif space_count > 0: #character is part of the vertex
                         try:
                             digit += str(int(char))
                         except:
@@ -124,6 +135,7 @@ def load_model(file):
                 y = float(coords[1])
                 z = float(coords[2])
 
+                #finds max and min values in each direction to create bounding box
                 if x > x_range[0]:
                     x_range[0] = x
                 elif x < x_range[1]:
@@ -141,9 +153,10 @@ def load_model(file):
 
                 vertex = (x, y, z)
 
+                #adds to list
                 vertex_list.extend([vertex])
 
-
+            #normals
             elif line.find('vn ') != -1:
 
                 normal = []
@@ -153,13 +166,13 @@ def load_model(file):
                 for char in line:
                     if char == ' ' or char == '\n':
                         space_count += 1
-                        try:
+                        try: #saves normal point
                             normal.append(float(digit))
                             digit = ""
                         except:
                             pass
 
-                    elif space_count > 0:
+                    elif space_count > 0: #character is part of normal
                         try:
                             digit += str(int(char))
                         except:
@@ -173,7 +186,7 @@ def load_model(file):
                 normal_list.append(normal)
 
 
-
+            #faces
             elif line.find("f ") != -1:
 
                 
@@ -187,7 +200,7 @@ def load_model(file):
 
                     if char == " " or char == '\n':
 
-                        try:
+                        try: #adds corner vertex reference
                             corners.append(float(face))
                             face = ""
                         except:
@@ -199,10 +212,10 @@ def load_model(file):
 
                         index_location += 1
 
-                    elif index_location == 0 and space_count != 0:
+                    elif index_location == 0 and space_count != 0: #adds 'f' type code
                         face += char
 
-                    elif index_location == 2 and space_count == 1:
+                    elif index_location == 2 and space_count == 1: # reads first normal in the list - should all be the same for one face
                         normal_pointer += char
 
 
@@ -210,6 +223,7 @@ def load_model(file):
                 normal_index.append(int(normal_pointer))
                 rgb_index.append(material_count)
 
+            #material
             elif line.find("usemtl ") != -1:
                 material_name = line.split(" ", 1)[1]
                 rgb = []
@@ -222,6 +236,7 @@ def load_model(file):
                     for line in lines:
                         if line.find(material_name) != -1:
 
+                            #reads rgb from 'kd' line in mtl
                             material_info = lines[line_count + 3]
                             r = float(material_info.split(" ", 3)[1])
                             g = float(material_info.split(" ", 3)[2])
@@ -238,23 +253,29 @@ def load_model(file):
     return vertex_list, face_list
 
 def dot_product(vec1, vec2):
-
+    #returns dot product of 2 input vectors
     dot = vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2]
     return dot
 
 
 
 def hex_generator(illumination, colour):
+    #calculates hex code for a face based off illumination and material colour
 
     value = illumination * 255
     if value > 128:
+        #clamps bright values to reduce harsh colours
         value = round(value - ((value - 128) / 10))
     else:
+        #clamps dark values to increase visability
         value = round(value + ((128 - value) / 7))
+
+    #convert to hex
     rdigit = str(hex(round(colour[0] * value)))[2:]
     gdigit = str(hex(round(colour[1] * value)))[2:]
     bdigit = str(hex(round(colour[2] * value)))[2:]
 
+    #formatting
     if len(rdigit) == 1:
         rdigit = "0" + rdigit
     if len(gdigit) == 1:
@@ -267,6 +288,7 @@ def hex_generator(illumination, colour):
 
 
 def draw_points():
+    #renders the model
 
     global theta_x
     global theta_y
@@ -284,6 +306,7 @@ def draw_points():
     global rgb_list
     global rgb_index
 
+    #depth
     scale = 1000 * zoom
     distance = 2
 
@@ -293,6 +316,7 @@ def draw_points():
     corrected_vertex = []
     canvas.delete('all')
 
+    #bounding box
     x_size = (abs(x_range[0]) + abs(x_range[1])) / 2
     y_size = (abs(y_range[0]) + abs(y_range[1])) / 2
     z_size = (abs(z_range[0]) + abs(z_range[1])) / 2
@@ -301,50 +325,31 @@ def draw_points():
     y_centre = y_range[0] - y_size
     z_centre = z_range[0] - z_size
 
-    ordered_scales = [0, 0, 0]
+    largest_scale = 0
 
+    #finds largest scale size
     if x_size >= y_size and x_size >= z_size:
 
-        ordered_scales[2] = x_size
-
-        if y_size >= z_size:
-
-            ordered_scales[1] = y_size
-            ordered_scales[0] = z_size
-        else:
-            ordered_scales[1] = z_size
-            ordered_scales[0] = y_size
+        largest_scale = x_size
 
     elif y_size >= x_size and y_size >= z_size:
 
-        ordered_scales[2] = y_size
-
-        if x_size >= z_size:
-
-            ordered_scales[1] = x_size
-            ordered_scales[0] = z_size
-        else:
-            ordered_scales[1] = z_size
-            ordered_scales[0] = x_size
+        largest_scale = y_size
 
     elif z_size >= y_size and z_size >= x_size:
 
-        ordered_scales[2] = z_size
+        largest_scale = z_size
 
-        if y_size >= x_size:
 
-            ordered_scales[1] = y_size
-            ordered_scales[0] = x_size
-        else:
-            ordered_scales[1] = x_size
-            ordered_scales[0] = y_size
+    render_type = render_config.get() #faces, edges, or vertecies
 
-    render_type = render_config.get()
 
+    #calculates 2d points to render
     for i in range(len(vertex_list)):
 
         vertex = vertex_list[i]      
 
+        #rotations
         if theta_x != 0:
             vertex = geometryBuilder.x_rotation(theta_x,vertex)
         if theta_y != 0:
@@ -352,10 +357,12 @@ def draw_points():
         if theta_z != 0:
             vertex = geometryBuilder.z_rotation(theta_z,vertex)
 
+        #inverts x axis for parity with blender defaults
         vertex = (-vertex[0], vertex[1], vertex[2])
 
-        y = vertex[1] + distance / 2 + distance * 2 * ordered_scales[2]
+        y = vertex[1] + distance / 2 + distance * 2 * largest_scale
 
+        #3d vector with correct depth scaling - used for face render order
         corrected_vertex.append(vertex)
 
         x = (vertex[0] + x_centre) * scale + shift[0]
@@ -363,11 +370,13 @@ def draw_points():
 
         vertex = [x,y,z]
         
+        #converts to 2d vertex for rendering
         display_vertex = parallax_correction(vertex)
 
         display_vertex[0] += window_size / 2
         display_vertex[1] += window_size / 2
         drawn_points.append(display_vertex)
+
         #render vertecies
         if render_type == 1:
             canvas.create_line(display_vertex[0], display_vertex[1], display_vertex[0] + 1, display_vertex[1] + 1, fill = "red", width=2)
@@ -378,6 +387,7 @@ def draw_points():
 
             lines = faces[j]
 
+            #draws line between vertecies in the order given in the face indices
             for k in range(len(lines) - 1):
                 pos1 = int(lines[k]) - 1
                 pos2 = int(lines[k + 1]) - 1
@@ -385,6 +395,7 @@ def draw_points():
                 coord2 = drawn_points[pos2]
                 canvas.create_line(coord1[0], coord1[1], coord2[0], coord2[1], fill = "blue", width = 2)
 
+                #draws final line between first and last vertex
                 if k == (len(lines) - 2):
                     pos0 = int(lines[0]) - 1
                     coord1 = drawn_points[pos0]
@@ -400,6 +411,8 @@ def draw_points():
             lines = faces[k]
 
             normal = normal_list[normal_index[k] - 1]
+
+            #rotations
             if theta_x != 0:
                 normal = geometryBuilder.x_rotation(theta_x, normal)
             if theta_y != 0:
@@ -407,21 +420,23 @@ def draw_points():
             if theta_z != 0:
                 normal = geometryBuilder.z_rotation(theta_z, normal)
 
+            #calculates how much the normal points towards the viewer
             direction = dot_product(normal, [0, -1, 0])
             direction_list.append(direction)
 
-            if direction > 0:
+            if direction > 0: #points towards viewer
+                #calculates the depth of the geometric centre of the face
 
                 mean_depth_index.append(k)
 
-                if len(lines) == 3:
+                if len(lines) == 3: #triangles
                     coords1 = corrected_vertex[int(lines[0])-1]
                     coords2 = corrected_vertex[int(lines[1])-1]
                     coords3 = corrected_vertex[int(lines[2])-1]
 
                     mean_depth.append((coords1[1] + coords2[1] + coords3[1]) / 3)
 
-                elif len(lines) == 4:
+                elif len(lines) == 4: #quadrilaterals
                     coords1 = corrected_vertex[int(lines[0])-1]
                     coords2 = corrected_vertex[int(lines[1])-1]
                     coords3 = corrected_vertex[int(lines[2])-1]
@@ -429,43 +444,50 @@ def draw_points():
 
                     mean_depth.append((coords1[1] + coords2[1] + coords3[1] + coords4[1]) / 4)
 
-        #order depths
+        #order depths, reorder indexes in the same way 
         try:
             mean_depth, mean_depth_index = zip(*sorted(zip(mean_depth, mean_depth_index)))
         except:
             pass
 
         furthest = len(mean_depth_index)
+
         #draws faces
         for j in range(furthest):
         
+            #furthest to closest
             face_index = mean_depth_index[furthest - j - 1]
             lines = faces[face_index]
+
+            #refereces rgb values
             material_type = rgb_index[face_index]
             try:
                 colour = rgb_list[material_type - 1]
             except:
                 colour = [1, 1, 1]
             
+            #gets direction and calculates colour
             direction = direction_list[face_index]
             shade = hex_generator(direction, colour)
 
-            if len(lines) == 3:
+            if len(lines) == 3: #draw triangle
                 coords1 = drawn_points[int(lines[0])-1]
                 coords2 = drawn_points[int(lines[1])-1]
                 coords3 = drawn_points[int(lines[2])-1]
                 canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1],fill=shade)
-            elif len(lines) == 4:
+            elif len(lines) == 4: #draw quadrilateral
                 coords1 = drawn_points[int(lines[0])-1]
                 coords2 = drawn_points[int(lines[1])-1]
                 coords3 = drawn_points[int(lines[2])-1]
                 coords4 = drawn_points[int(lines[3])-1]
                 canvas.create_polygon(coords1[0],coords1[1], coords2[0],coords2[1], coords3[0],coords3[1], coords4[0],coords4[1],fill=shade)
 
-    for i in range(3):
+    #draw axes
+    for i in range(3): #vector in each direction length 100 pixels
         vertex = [0, 0, 0]
         vertex[i] = 100
 
+        #rotations
         if theta_x != 0:
             vertex = geometryBuilder.x_rotation(-theta_x,vertex)
         if theta_y != 0:
@@ -473,12 +495,14 @@ def draw_points():
         if theta_z != 0:
             vertex = geometryBuilder.z_rotation(-theta_z,vertex)
         
+        #translation to top right
         y = vertex[1]
         x = (vertex[0] + 625)
         z = (- vertex[2] + 125)
 
         vertex=[x, y, z]
         
+        #axes colours
         if i == 0:
             axis_colour = "red"
         elif i == 1:
@@ -486,18 +510,20 @@ def draw_points():
         elif i == 2:
             axis_colour = "blue"
 
+        #draw axes
         canvas.create_line(625, 125, vertex[0], vertex[2], fill = axis_colour)
 
 
 
 def next_frame():
+    #schedules frames
 
     draw_points()
     canvas.after(50, next_frame)
 
 
 def model_rotation(x_angle = 0, y_angle = 0, z_angle = 0):
-
+    #global rotations - not reachable from UI 
     global vertex_list
 
     for i in range(len(vertex_list)):
@@ -515,7 +541,7 @@ def model_rotation(x_angle = 0, y_angle = 0, z_angle = 0):
 
 #mouse rotation
 def rotations(event):
-
+    #rotates the rendered view based on mouse inputs
     global current_pos
     global theta_x
     global theta_y
@@ -525,8 +551,10 @@ def rotations(event):
     global deltax
     global deltaz
 
+    #gets mouse position
     current_pos = [event.x, event.y]
 
+    #bounds z angle to 0-4 to identify which direction viewer is facing
     normalised_theta_z = theta_z
     while normalised_theta_z > 360:
         normalised_theta_z -= 360
@@ -534,26 +562,34 @@ def rotations(event):
         normalised_theta_z += 360
     normalised_theta_z /= 90
 
+    #z rotation
     deltaz = - current_pos[0] + mousexz[0] + priordeltas[0]
 
+    #rotates view in a direction dependant on which angle the view is facing
+    #x rotation
     if normalised_theta_z >= 1 and normalised_theta_z < 3:
-        deltay = current_pos[1] - mousexz[1] + priordeltas[1]
-    else:
-        deltay = - current_pos[1] + mousexz[1] + priordeltas[1]
-
-    if normalised_theta_z >= 0 and normalised_theta_z < 2:
         deltax = current_pos[1] - mousexz[1] + priordeltas[1]
-    elif normalised_theta_z >= 2 and normalised_theta_z < 4:
+    else:
         deltax = - current_pos[1] + mousexz[1] + priordeltas[1]
 
+    #y rotation
+    if normalised_theta_z >= 0 and normalised_theta_z < 2:
+        deltay = current_pos[1] - mousexz[1] + priordeltas[1]
+    elif normalised_theta_z >= 2 and normalised_theta_z < 4:
+        deltay = - current_pos[1] + mousexz[1] + priordeltas[1]
+
+    #calculates how much each side is viewed
     side_ratio = abs(cos(2* pi* theta_z / 360))
 
-    theta_x = deltay * side_ratio / 3
-    theta_y = deltax * (1 - side_ratio) / 3
+    #rotates view based on mouse inputs and current view angle
+    theta_x = deltax * side_ratio / 3
+    theta_y = deltay * (1 - side_ratio) / 3
     theta_z = deltaz / 3
        
 
 def button_up(event):
+    #middle click ends
+    #tracks final position of rotations
     global priordeltas
     global deltax
     global deltaz
@@ -561,35 +597,45 @@ def button_up(event):
     priordeltas = [deltaz, deltax]
 
 def button_down(event):
+    #middle click starts
+    #tracks initial position of rotation
     global mousexz
     mousexz[0] = event.x
     mousexz[1] = event.y
 
 def zoomin(event):
+    #calculates zoom level based on scroll input
     global zoom
     zoom += event.delta / (120 * 8)
     if zoom < 0:
         zoom = 0
 
 def shift_model(event):
+    #moves the model across the screen with left mouse 
     global shift
     global shift_clicked_pos
     global total_shift
     global shift_delta_x
     global shift_delta_z
+    global zoom
 
     shift_pos = [event.x, event.y]
-    shift_delta_x = (shift_pos[0] - shift_clicked_pos[0]) * 2.7
-    shift_delta_z = (shift_pos[1] - shift_clicked_pos[1]) * 2.7
+    shift_delta_x = (shift_pos[0] - shift_clicked_pos[0]) * 2.7 / zoom
+    shift_delta_z = (shift_pos[1] - shift_clicked_pos[1]) * 2.7 / zoom
+    #tracks current shift position
     shift = [shift_delta_x + total_shift[0], shift_delta_z + total_shift[1]]
 
 
 def shift_clicked(event):
+    #left click starts
+    #marks initial position
     global shift_clicked_pos
 
     shift_clicked_pos = [event.x, event.y]
 
 def shift_released(event):
+    #left click ends
+    #tracks total shift
     global total_shift
     global shift
     global shift_delta_x
@@ -598,6 +644,7 @@ def shift_released(event):
     total_shift[0] += shift_delta_x
     total_shift[1] += shift_delta_z
 
+#binds mouse buttons to commands
 canvas.bind("<B2-Motion>", rotations)
 canvas.bind("<ButtonRelease-2>", button_up)
 canvas.bind("<ButtonPress-2>", button_down)
@@ -609,26 +656,32 @@ canvas.bind("<ButtonRelease-1>", shift_released)
 
 #UI functions
 def close_app():
+    #close button
     root.destroy()
     UI.destroy()
 
 def update_model():
+    #load file button
+    #loads the model from the file
     global vertex_list
     global faces
 
     input_filepath = path_in.get()
     input_name = name_in.get()
-    try:
+
+    try: #load file
         vertex_list, faces = load_model(input_filepath + "\\" + input_name + ".obj")
         model_rotation(x_angle = 0, y_angle = 0)
        
-    except:
+    except: #file doesnt exist
         popup = tk.Toplevel()
         popup.title("Error")
         popup.geometry("250x100+500+300")
         tk.Label(popup, text="Error: No file with this address").place(x=40,y=35)
 
 def home():
+    #home button
+    #resets the view to origional position - 0,0,0 facing 0,1,0 no rotations
     global theta_x
     global theta_y
     global theta_z
@@ -646,7 +699,7 @@ def home():
     total_shift = [0, 0]
 
 def create_geometry():
-    
+    #adds each geometry feature to the obj file using geometryBuilder
     global component_list
     global component_type
     global type_settings
@@ -654,77 +707,88 @@ def create_geometry():
 
     input_filepath = path_in.get()
     input_name = name_in.get()
-    try:
+    try: #initialise files
         geometryBuilder.setup(input_filepath + "\\", input_name)
-    except:
+    
+
+        for i in range(len(component_list)):
+
+            setting = component_settings[i]
+            typesetting = type_settings[i]
+
+            if component_type[i] == 1: #import obj
+            
+                try:
+                    geometryBuilder.import_model(typesetting[0], typesetting[1] + "\\", scale = setting[0], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                except:
+                    popup = tk.Toplevel()
+                    popup.title("Error")
+                    popup.geometry("250x100+500+300")
+                    try: #no file with this name 
+                        tk.Label(popup, text="Error: Missing component " + str(typesetting[0])).place(x=40,y=35)
+                    except: #name not entered
+                        tk.Label(popup, text="Error: Missing component").place(x=40,y=35)
+
+
+            elif component_type[i] == 2: #generate prism
+
+                try:
+                    geometryBuilder.prism_geometry(name = typesetting[0], side_count = typesetting[1], radius = typesetting[2], height = typesetting[3], taper = typesetting[4], is_hollow = typesetting[5], wall_thickness = typesetting[6], material = typesetting[7], x_scale = setting[0], y_scale = setting[1], z_scale = setting[2], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                except: #prism generation error
+                    popup = tk.Toplevel()
+                    popup.title("Error")
+                    popup.geometry("250x100+500+300")
+                    tk.Label(popup, text="Error: Prism generation error: " + str(typesetting[0])).place(x=40,y=35)
+
+
+            elif component_type[i] == 3: #generate parabola
+
+                try:
+                    #inside face
+                    geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                    #outside face
+                    geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
+                    #connecting edge
+                    geometryBuilder.prism_geometry(name = typesetting[0],side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] + 0.005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8] + (360 / typesetting[4]) / 2)
+                except: #parabola generation error
+                    popup = tk.Toplevel()
+                    popup.title("Error")
+                    popup.geometry("250x100+500+300")
+                    tk.Label(popup, text="Error: Parabola generation error" + str(typesetting[0])).place(x=40,y=35)
+
+
+    except: #initialisation error
         popup = tk.Toplevel()
         popup.title("Error")
         popup.geometry("250x100+500+300")
         tk.Label(popup, text="Error: Enter a valid filepath ").place(x=40,y=35)
 
-    for i in range(len(component_list)):
-
-        setting = component_settings[i]
-        typesetting = type_settings[i]
-
-        if component_type[i] == 1:
-            
-            try:
-                geometryBuilder.import_model(typesetting[0], typesetting[1] + "\\", scale = setting[0], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
-            except:
-                popup = tk.Toplevel()
-                popup.title("Error")
-                popup.geometry("250x100+500+300")
-                try:
-                    tk.Label(popup, text="Error: Missing component " + str(typesetting[0])).place(x=40,y=35)
-                except:
-                    tk.Label(popup, text="Error: Missing component").place(x=40,y=35)
-
-
-        elif component_type[i] == 2:
-
-            try:
-                geometryBuilder.prism_geometry(name = typesetting[0], side_count = typesetting[1], radius = typesetting[2], height = typesetting[3], taper = typesetting[4], is_hollow = typesetting[5], wall_thickness = typesetting[6], material = typesetting[7], x_scale = setting[0], y_scale = setting[1], z_scale = setting[2], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
-            except:
-                popup = tk.Toplevel()
-                popup.title("Error")
-                popup.geometry("250x100+500+300")
-                tk.Label(popup, text="Error: No save file " + str(typesetting[0])).place(x=40,y=35)
-
-
-        elif component_type[i] == 3:
-
-            try:
-                geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
-                geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
-                geometryBuilder.prism_geometry(name = typesetting[0],side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] + 0.005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8] + (360 / typesetting[4]) / 2)
-            except:
-                popup = tk.Toplevel()
-                popup.title("Error")
-                popup.geometry("250x100+500+300")
-                tk.Label(popup, text="Error: No save file " + str(typesetting[0])).place(x=40,y=35)
-
-
+    #reloads the save file
     update_model()
 
 def update_list(name):
+    #adds new components to the part menu
         
     global component_list
     global component_number
     global component_menu
 
+    #adds component to the menu list
     current_length = len(component_list)
     component_list.append((str(current_length + 1) + "    " + name))
+    #removes old menu
     component_menu.destroy()
+    #adds new menu
     component_menu = tk.OptionMenu(UI, component_number, *component_list, command = load_component)
     component_menu.place(x = 5, y = 120)
 
 
 def save_settings():
+    #saves scale, translation, and rotation settings
 
     global component_settings
 
-
+    #scale
     try:
         xscale = float(x_scale_input.get())
     except:
@@ -738,7 +802,7 @@ def save_settings():
     except:
         zscale = 1
 
-
+    #translations
     try:
         xoffset = -float(x_offset_input.get())
     except:
@@ -752,7 +816,7 @@ def save_settings():
     except:
         zoffset = 0
 
-
+    #rotations
     try:
         xrotation = float(x_rotation_input.get())
     except:
@@ -766,21 +830,27 @@ def save_settings():
     except:
         zrotation = 0
 
+    #save to setting variable
     setting = (xscale, yscale, zscale, xoffset, yoffset, zoffset, xrotation, yrotation, zrotation)
     component_settings.append(setting)
 
 
 def add_subassembly():
+    #saves subassembly information
 
     global component_type
     global type_settings
 
+    #adds component to part list
     name = str(add_name.get())
     update_list(name)
+    #saves scale, translation, and rotation
     save_settings()
 
+    #indentified as a subassembly
     component_type.append(1)
 
+    #saves file information
     try:
         subname = str(add_name.get())
     except:
@@ -795,9 +865,12 @@ def add_subassembly():
   
 
 def clear_boxes():
+    #removes text from all component input boxes
     global component_number
     global component_list
+    global material
 
+    #settings
     x_scale_input.delete(0, tk.END)
     y_scale_input.delete(0, tk.END)
     z_scale_input.delete(0, tk.END)
@@ -808,9 +881,11 @@ def clear_boxes():
     y_rotation_input.delete(0, tk.END)
     z_rotation_input.delete(0, tk.END)
 
+    #subassembly
     add_file.delete(0, tk.END)
     add_name.delete(0, tk.END)
 
+    #prism
     prism_name_entry.delete(0, tk.END)
     side_count_entry.delete(0, tk.END)
     prism_radius_entry.delete(0, tk.END)
@@ -819,15 +894,20 @@ def clear_boxes():
     hollow_check.deselect()
     wall_thickness_entry.delete(0, tk.END)
 
+    #parabola
     dish_name_entry.delete(0, tk.END)
     dish_radius_entry.delete(0, tk.END)
     dish_height_entry.delete(0, tk.END)
     dish_segments_entry.delete(0, tk.END)
     dish_fidelity_entry.delete(0, tk.END)
 
+    #part menu
     component_number.set("Select a component")
+    #material menu
+    material.set("Select a material")
 
 def load_component(selected_name):
+    #load selected components settings
 
     global component_number
     global component_type
@@ -836,8 +916,10 @@ def load_component(selected_name):
     global material
     global material_list
 
-
+    #clears all inputs
     clear_boxes()
+
+    #identifies selected part
     selected = selected_name
     component_number.set(selected_name)
     item_id = ""
@@ -854,34 +936,38 @@ def load_component(selected_name):
     except:
         type_id = 0
 
+    #loads part settings
     setting = component_settings[id_num]
 
+    #deleted components id numbers are multiplied by 10 so will not be generated in the file, but settings can still be retrieved and recovered
     if type_id > 9:
         type_id /= 10
 
+    #writes scale settings
     x_scale_input.insert(0, setting[0])
     y_scale_input.insert(0, setting[1])
     z_scale_input.insert(0, setting[2])
-
+    #writes translation setting
     x_offset_input.insert(0, -setting[3])
     y_offset_input.insert(0, setting[4])
     z_offset_input.insert(0, -setting[5])
-
+    #writes rotation settings
     x_rotation_input.insert(0, setting[6])
     y_rotation_input.insert(0, setting[7])
     z_rotation_input.insert(0, setting[8])
 
-
+    #loads part specific settings
     setting = type_settings[id_num]
 
-    if type_id == 1:
+    #writes part settings
+    if type_id == 1: #subassembly
 
         add_file.insert(0, setting[1])
         add_name.insert(0, setting[0])
         material.set("Select a material")
 
-    if type_id == 2:
-
+    if type_id == 2: #prism
+        
         prism_name_entry.insert(0, setting[0])
         side_count_entry.insert(0, setting[1])
         prism_radius_entry.insert(0, setting[2])
@@ -895,8 +981,7 @@ def load_component(selected_name):
         wall_thickness_entry.insert(0, setting[6])
         material.set(setting[7])
 
-
-    if type_id == 3:
+    if type_id == 3: #parabola
 
         dish_name_entry.insert(0, setting[0])
         dish_radius_entry.insert(0, setting[1])
@@ -908,22 +993,28 @@ def load_component(selected_name):
 
 
 def add_prism():
+    #saves prism settings
     
     global component_type
     global type_settings
     global ishollow
     global material
 
+    #gets name
     try:
         name = str(prism_name_entry.get())
     except:
         name = "<insert name>"
 
+    #adds prism to part menu 
     update_list(name)
+    
     save_settings()
 
+    #identifies part as prism
     component_type.append(2)
 
+    #reads prism settings
     try:
         sidecount = int(side_count_entry.get())
     except:
@@ -952,18 +1043,20 @@ def add_prism():
     except:
         prism_material = "MLI"
 
-
+    #saves settings
     setting = (name, sidecount, radius, height, taper, hollow, wallthickness, prism_material)
     type_settings.append(setting)
 
 
 def delete_component():
+    #marks selected component as deleted - does not delete data
     
     global component_type
     global component_list
     global component_menu
     global component_number
 
+    #identifies selected component
     selected = component_number.get()
     item_id = ""
     
@@ -974,49 +1067,53 @@ def delete_component():
             break
 
     try:
+        #multiplies type identifing code by 10 - unrecognised code wont be added to obj file but part is recoverable
         id_num = int(item_id) - 1
         component_type[id_num] *= 10
 
-        component_list[id_num] = str(id_num + 1) + "    [DELETED]"
+        component_list[id_num] = selected + "    [DELETED]"
 
+        #updates part menu
         component_menu.destroy()
         component_menu = tk.OptionMenu(UI, component_number, *component_list)
         component_menu.place(x = 5, y = 120)
-    except:
+    except: #no component selected
         pass
 
 
 def add_dish():
+    #saves parabola settings
 
     global component_type
     global type_settings
     global material
 
+    #gets name
     try:
         name = str(dish_name_entry.get())
     except:
         name = "<insert name>"
 
+    #updates part menu
     update_list(name)
     save_settings()
-
+    
+    #identifies part as parabola
     component_type.append(3)
 
+    #reads settings
     try:
         radius = float(dish_radius_entry.get())
     except:
         radius = 1
-
     try:
         height = float(dish_height_entry.get())
     except:
         height = 1
-
     try:
         segments = int(dish_segments_entry.get())
     except:
         segments = 15
-
     try:
         fidelity = int(dish_fidelity_entry.get())
     except:
@@ -1026,13 +1123,14 @@ def add_dish():
     except:
         dish_material = "Aluminium"
 
-
+    #saves settings
     setting = (name, radius, height, segments, fidelity, dish_material)
     type_settings.append(setting)
 
 
 
 def update_component():
+    #updates saved settings
     
     global component_number
     global component_type
@@ -1042,6 +1140,7 @@ def update_component():
     global component_menu
     global material
 
+    #identifies selected part
     selected = component_number.get()
     item_id = ""
     
@@ -1056,14 +1155,14 @@ def update_component():
         type_id = component_type[id_num]
     except:
         type_id = 0
-
+    #recovers deleted parts
     if type_id > 9:
         type_id /= 10
         component_type[id_num] = type_id
 
 
 
-
+    #reads scales
     try:
         xscale = float(x_scale_input.get())
     except:
@@ -1077,7 +1176,7 @@ def update_component():
     except:
         zscale = 1
 
-
+    #reads translations
     try:
         xoffset = -float(x_offset_input.get())
     except:
@@ -1091,7 +1190,7 @@ def update_component():
     except:
         zoffset = 0
 
-
+    #reads rotations
     try:
         xrotation = float(x_rotation_input.get())
     except:
@@ -1104,11 +1203,13 @@ def update_component():
         zrotation = float(z_rotation_input.get())
     except:
         zrotation = 0
-
+    
+    #saves new settings
     setting = (xscale, yscale, zscale, xoffset, yoffset, zoffset, xrotation, yrotation, zrotation)
     component_settings[id_num] = setting
 
     if type_id == 1:
+        #saves subassembly settings
 
         try:
             subname = str(add_name.get())
@@ -1123,7 +1224,7 @@ def update_component():
         type_settings[id_num] = setting
 
     if type_id == 2:
-
+        #saves prism settings
 
         try:
             name = str(prism_name_entry.get())
@@ -1160,6 +1261,7 @@ def update_component():
         type_settings[id_num] = setting
 
     if type_id == 3:
+        #saves parabola settings
 
         try:
             name = str(dish_name_entry.get())
@@ -1190,6 +1292,7 @@ def update_component():
         type_settings[id_num] = setting
 
 
+    #updates part list
     component_list[id_num] = str(id_num + 1) + "    " + setting[0]
 
     component_menu.destroy()
@@ -1198,27 +1301,20 @@ def update_component():
     
 
 def check_hollow():
+    #reads checkbox for hollow prisms
     global ishollow
     hollow = ishollow.get()
     return hollow
 
-def force_update_menu():
-
-    global component_list
-    global component_number
-    global component_menu
-
-    component_menu.destroy()
-    component_menu = tk.OptionMenu(UI, component_number, *component_list, command = load_component)
-    component_menu.place(x = 5, y = 120)
 
 def force_load_component():
+    #loads components - load components occasionally stops working when selecting a part, starts working again after another part is added
     global component_number
     name = component_number.get()
     load_component(name)
 
 
-#UI setup
+#UI setup - adds all elements to the UI screen 
 
 #close
 tk.Button(UI, text="Close", width = 15, command = close_app).place(x = 200, y = window_size - 50)
@@ -1313,6 +1409,7 @@ tk.Label(UI, text = "Note: x scale acts as the overall scale factor for the inse
 
 #materials
 material_list = []
+#reads available materials from materialLibrary
 lib = os.path.dirname(__file__) + "\\materialLibrary.txt"
 with open(lib) as file:
     lines = file.readlines()
@@ -1320,7 +1417,7 @@ with open(lib) as file:
         if line.find("newmtl") != -1:
             mat = line.split(" ", 1)[1]
             material_list.append(mat)
-
+#adds material list
 tk.Label(UI, text = "Material: ").place(x = 5, y = 290)
 material = tk.StringVar(UI)
 material.set("Select a material")
@@ -1396,11 +1493,12 @@ edges_selected.place(x = 5, y = 700)
 faces_selected = tk.Radiobutton(UI, text = "Faces", value = 3, variable = render_config)
 faces_selected.place(x = 5, y = 720)
 
-#fixes
-#tk.Button(UI, text = "Reload menu", width = 15, command = force_update_menu).place(x = 80, y = 680)
+#force load button
 tk.Button(UI, text = "Load component", width = 15, command = force_load_component).place(x = 80, y = 700)
 
+
+#starts renderer
 next_frame()
 
+#starts tk in the main run loop
 tk.mainloop()
-UI.mainloop()
