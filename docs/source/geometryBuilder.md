@@ -10,7 +10,7 @@ The mtl file is only used for graphical uses and is not read by satlight, which 
 from satlight import geometryBuilder
 
 geometryBuilder.setup(
-folder = "models\\saveFolder",          # filepath
+folder = "models\saveFolder",          # filepath
 name = "satelliteName",                 # file name
 x_rotation = 0, 
 y_rotation = 0, 
@@ -27,7 +27,7 @@ Premade obj files can be read in and added to the new file in the desired size, 
 ```python
 geometryBuilder.import_model(
 file = "componentName"               # file name
-folder = "Models\\Components"        # filepath, if left blank the save files folder will be used
+folder = "models\components"        # filepath, if left blank the save files folder will be used
 scale = 1                            # scales the model by this factor
 x_angle = 0, 
 y_angle = 0, 
@@ -88,3 +88,22 @@ y_offset = 0,
 z_offset = 0                   # translations x, y, z in metres from the origin
 )
 ```
+
+
+## Box wing satellite example
+
+A simple box wing satellite with an antenna on the front face comprised of only 4 parts:
+
+```python
+from satlight import geometryBuilder 
+
+geometryBuilder.setup("models\examples", "Box wing satellite")
+
+geometryBuilder.prism_geometry("Bus", 4, 0.7071, 1)
+geometryBuilder.prism_geometry("Solar panel 1", side_count = 4, radius = 0.7071, height = 1, material = "Solar_Panel", x_scale = 2, z_scale = 0.05, x_offset = 1.5, x_angle = -60)
+geometryBuilder.prism_geometry("Solar panel 2", side_count = 4, radius = 0.7071, height = 1, material = "Solar_Panel", x_scale = 2, z_scale = 0.05, x_offset = -1.5, x_angle = -60)
+geometryBuilder.parabola_geometry("Comms dish", radius = 0.3, height = 0.1, segments = 10, fidelity = 18, material = "White_Paint", x_angle = 90, y_offset = -0.5)
+```
+
+Rendering this object shows a main bus 1x1x1 metres, two 2x1 metre solar panels angled 30 degrees from the observer, and a 0.6 metre antenna.
+![[Pasted image 20260901195645.png]]
