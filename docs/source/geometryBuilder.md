@@ -70,8 +70,6 @@ z_offset = 0                # translations x, y, z in metres from the origin
 
 Parabolas can be generated with a desired radius and height as well as orientation and position. Detail level can also be specified to lower or increase model accuracy. Parabolas are used for communication dishes as well as approximating engine nozzles or aerodynamic covers. 
 
-Parabolas are 2 dimensional with the normals pointing out of the interior face. To ensure correct rendering via 'workbench' and 'satlight', it is recommended to generate a second parabola with negative height and position it below the first, as well as a hollow prism with the same number of sides positioned between the parabolas.
-
 ```python
 geometryBuilder.parabola_geometry(
 name = "comms dish", 
