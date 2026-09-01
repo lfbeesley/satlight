@@ -708,7 +708,7 @@ def create_geometry():
     input_filepath = path_in.get()
     input_name = name_in.get()
     try: #initialise files
-        geometryBuilder.setup(input_filepath + "\\", input_name)
+        geometryBuilder.setup(input_filepath, input_name)
     
 
         for i in range(len(component_list)):
@@ -719,7 +719,7 @@ def create_geometry():
             if component_type[i] == 1: #import obj
             
                 try:
-                    geometryBuilder.import_model(typesetting[0], typesetting[1] + "\\", scale = setting[0], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
+                    geometryBuilder.import_model(typesetting[0], typesetting[1], scale = setting[0], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
                 except:
                     popup = tk.Toplevel()
                     popup.title("Error")
@@ -744,12 +744,7 @@ def create_geometry():
             elif component_type[i] == 3: #generate parabola
 
                 try:
-                    #inside face
                     geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] , x_angle = setting[6], y_angle = setting[7], z_angle = setting[8])
-                    #outside face
-                    geometryBuilder.parabola_geometry(name = typesetting[0], radius = typesetting[1], height = -typesetting[2], segments = typesetting[3], fidelity = typesetting[4], material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + 0.01 , x_angle = setting[6] + 180, y_angle = setting[7], z_angle = setting[8])
-                    #connecting edge
-                    geometryBuilder.prism_geometry(name = typesetting[0],side_count = typesetting[4], radius = typesetting[1], height = 0.01, taper = 1, is_hollow = True, wall_thickness = 0.001, material = typesetting[5], x_offset = setting[3], y_offset = setting[4], z_offset = setting[5] + typesetting[2] + 0.005, x_angle = setting[6], y_angle = setting[7], z_angle = setting[8] + (360 / typesetting[4]) / 2)
                 except: #parabola generation error
                     popup = tk.Toplevel()
                     popup.title("Error")
