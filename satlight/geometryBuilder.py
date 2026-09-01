@@ -18,6 +18,7 @@ def setup(folder, name, x_rotation = 0, y_rotation = 0, z_rotation = 0):
     global folderpath
     global filename
     global material_file
+    global global_rotation
 
     global vertex_count
     global texture_count
@@ -31,8 +32,8 @@ def setup(folder, name, x_rotation = 0, y_rotation = 0, z_rotation = 0):
     filename = name
 
     #initialises obj and mtl files
-    filepath = folder + name + '.obj'
-    material_file = folder + name + '.mtl'
+    filepath = folder + '\\' + name + '.obj'
+    material_file = folder + '\\' + name + '.mtl'
 
     #creates obj
     #references mtl in obj file
@@ -326,7 +327,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
                     if char == ' ':
 
                         space_count += 1
-                        try: #trys adding poit to normal
+                        try: #trys adding point to normal
                             coords.append(float(digit))
                             digit = ""
                         except: #first character
@@ -724,7 +725,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
 
 
-def parabola_geometry(name, radius, height, segments, fidelity = 100, material = "Aluminium", x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
+def parabola_geometry(name, radius, height, segments, fidelity = 36, material = "Aluminium", x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
     #generates parabolas
     #calculates parabola based on radius and height
     #calculates vertecies
@@ -748,21 +749,50 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
     normal_reference = []
     texture_list = []
     texture_reference = []
+    half_height = 0.01
+
+
+    #interior side
 
     #centre point
-    x = 0 + x_offset
-    y = 0 + y_offset
-    z = 0 + z_offset
+    x = 0
+    y = 0
+    z = 0 + half_height
 
     vertex = (x, y, z)
+
+    #rotation
+    if x_angle != 0:
+        vertex = x_rotation(x_angle, vertex)
+
+    if y_angle != 0:
+        vertex = y_rotation(y_angle, vertex)
+
+    if z_angle != 0:
+        vertex = z_rotation(z_angle, vertex)
+  
+    #translation
+    vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
+
+    #global rotation
+    if global_rotation[0] != 0:
+        vertex = x_rotation(global_rotation[0], vertex)
+
+    if global_rotation[1] != 0:
+        vertex = y_rotation(global_rotation[1], vertex)
+
+    if global_rotation[2] != 0:
+        vertex = z_rotation(global_rotation[2], vertex)
+
     vertex_list.extend([vertex])
+
 
     for i in range(segments): #radius split into segments
         for j in range(fidelity): #angle split into fidelity
             #calculates vertex
             x = (i + 1) * segment_spacing * cos(2 * pi * current_angle / 360)
             y = (i + 1) * segment_spacing * sin(2 * pi * current_angle / 360)
-            z = a_coeff * ((i + 1) * segment_spacing) ** 2
+            z = a_coeff * ((i + 1) * segment_spacing) ** 2 + half_height
 
             vertex = (x, y, z)
 
@@ -793,60 +823,209 @@ def parabola_geometry(name, radius, height, segments, fidelity = 100, material =
 
             #face list
             if i == 0 and j > 0: #adds first ring of triangular faces
-                current_face = (1 + vertex_count, j + 2 + vertex_count, j + 1 + vertex_count)
+                current_face = (j + 1 + vertex_count, j + 2 + vertex_count, 1 + vertex_count)
+                face_list.extend([current_face])
+
+                #normal
+                normal_vector = calc_normals(vertex_list[j + 1], vertex_list[0], vertex_list[j])
+                normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
+                normal_list.extend([normal_vector])
+                normal_reference.append(j + normal_count)
+
+                #final triangle
+                if j == fidelity - 1:
+                    current_face = (j + 2 + vertex_count, 2 + vertex_count, 1 + vertex_count)
+                    face_list.extend([current_face])
+
+                    #normal
+                    normal_vector = calc_normals(vertex_list[0], vertex_list[1], vertex_list[j + 1])
+                    normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+                    normal_list.extend([normal_vector])
+                    normal_reference.append(j + 1 + normal_count)
+
+            if i > 0 and j > 0: #adds all other faces - rectangles
+                current_face = (fidelity * i + j + 1 + vertex_count, fidelity * i + j + 2 + vertex_count, fidelity * (i - 1) + j + 2 + vertex_count, fidelity * (i - 1) + j + 1 + vertex_count)
+                face_list.extend([current_face])
+
+                #normals
+                normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j], vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * i + j + 1])
+                normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+                normal_list.extend([normal_vector])
+                normal_reference.append(fidelity * i + j + normal_count)
+
+                #final rectangle
+                if j == fidelity - 1:
+                    current_face = (fidelity * i + j + 2 + vertex_count, fidelity * i + 2 + vertex_count, fidelity * (i - 1) + 2 + vertex_count, fidelity * (i - 1) + j + 2 + vertex_count)
+                    face_list.extend([current_face])
+
+                    #normal
+                    normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * (i - 1) + 1], vertex_list[fidelity * i + j + 1])
+                    normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+                    normal_list.extend([normal_vector])
+                    normal_reference.append(fidelity * i + j + 1+ normal_count)
+
+            current_angle += theta
+         
+
+    #exterior side
+
+    #centre point
+    x = 0
+    y = 0
+    z = 0 - half_height
+
+    vertex = (x, y, z)
+    #rotation
+    if x_angle != 0:
+        vertex = x_rotation(x_angle, vertex)
+
+    if y_angle != 0:
+        vertex = y_rotation(y_angle, vertex)
+
+    if z_angle != 0:
+        vertex = z_rotation(z_angle, vertex)
+        
+    #translation
+    vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
+
+    #global rotation
+    if global_rotation[0] != 0:
+        vertex = x_rotation(global_rotation[0], vertex)
+
+    if global_rotation[1] != 0:
+        vertex = y_rotation(global_rotation[1], vertex)
+
+    if global_rotation[2] != 0:
+        vertex = z_rotation(global_rotation[2], vertex)
+
+    vertex_list.extend([vertex])
+
+
+    #corrects indexing for bottom face
+    parabola_vertex_indexing = fidelity * segments + 1
+    parabola_normal_indexing = fidelity * segments
+
+
+    for i in range(segments): #radius split into segments
+        for j in range(fidelity): #angle split into fidelity
+            #calculates vertex
+            x = (i + 1) * segment_spacing * cos(2 * pi * current_angle / 360)
+            y = (i + 1) * segment_spacing * sin(2 * pi * current_angle / 360)
+            z = a_coeff * ((i + 1) * segment_spacing) ** 2 - half_height
+
+            vertex = (x, y, z)
+
+            #rotation
+            if x_angle != 0:
+                vertex = x_rotation(x_angle, vertex)
+
+            if y_angle != 0:
+                vertex = y_rotation(y_angle, vertex)
+
+            if z_angle != 0:
+                vertex = z_rotation(z_angle, vertex)
+        
+            #translation
+            vertex = (vertex[0] + x_offset, vertex[1] + y_offset, vertex[2] + z_offset)
+
+            #global rotation
+            if global_rotation[0] != 0:
+                vertex = x_rotation(global_rotation[0], vertex)
+
+            if global_rotation[1] != 0:
+                vertex = y_rotation(global_rotation[1], vertex)
+
+            if global_rotation[2] != 0:
+                vertex = z_rotation(global_rotation[2], vertex)
+
+            vertex_list.extend([vertex])
+
+            #face list
+            if i == 0 and j > 0: #adds first ring of triangular faces
+                current_face = (1 + vertex_count + parabola_vertex_indexing, j + 2 + vertex_count + parabola_vertex_indexing, j + 1 + vertex_count + parabola_vertex_indexing)
                 face_list.extend([current_face])
 
                 #normal
                 normal_vector = calc_normals(vertex_list[j + 1], vertex_list[0], vertex_list[j])
                 normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
                 normal_list.extend([normal_vector])
-                normal_reference.append(j + normal_count)
+                normal_reference.append(j + normal_count + parabola_normal_indexing)
 
                 #final triangle
                 if j == fidelity - 1:
-                    current_face = (1 + vertex_count, 2 + vertex_count, j + 2 + vertex_count)
+                    current_face = (1 + vertex_count + parabola_vertex_indexing, 2 + vertex_count + parabola_vertex_indexing, j + 2 + vertex_count + parabola_vertex_indexing)
                     face_list.extend([current_face])
 
                     #normal
                     normal_vector = calc_normals(vertex_list[0], vertex_list[1], vertex_list[j + 1])
                     normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                     normal_list.extend([normal_vector])
-                    normal_reference.append(j + 1 + normal_count)
+                    normal_reference.append(j + 1 + normal_count + parabola_normal_indexing)
 
             if i > 0 and j > 0: #adds all other faces - rectangles
-                current_face = (fidelity * (i - 1) + j + 1 + vertex_count, fidelity * (i - 1) + j + 2 + vertex_count, fidelity * i + j + 2 + vertex_count, fidelity * i + j + 1 + vertex_count)
+                current_face = (fidelity * (i - 1) + j + 1 + vertex_count + parabola_vertex_indexing, fidelity * (i - 1) + j + 2 + vertex_count + parabola_vertex_indexing, fidelity * i + j + 2 + vertex_count + parabola_vertex_indexing, fidelity * i + j + 1 + vertex_count + parabola_vertex_indexing)
                 face_list.extend([current_face])
 
                 #normals
                 normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j], vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * i + j + 1])
                 normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                 normal_list.extend([normal_vector])
-                normal_reference.append(fidelity * i + j + normal_count)
+                normal_reference.append(fidelity * i + j + normal_count + parabola_normal_indexing)
 
                 #final rectangle
                 if j == fidelity - 1:
-                    current_face = (fidelity * (i - 1) + j + 2 + vertex_count, fidelity * (i - 1) + 2 + vertex_count, fidelity * i + 2 + vertex_count, fidelity * i + j + 2 + vertex_count)
+                    current_face = (fidelity * (i - 1) + j + 2 + vertex_count + parabola_vertex_indexing, fidelity * (i - 1) + 2 + vertex_count + parabola_vertex_indexing, fidelity * i + 2 + vertex_count + parabola_vertex_indexing, fidelity * i + j + 2 + vertex_count + parabola_vertex_indexing)
                     face_list.extend([current_face])
 
                     #normal
                     normal_vector = calc_normals(vertex_list[fidelity * (i - 1) + j + 1], vertex_list[fidelity * (i - 1) + 1], vertex_list[fidelity * i + j + 1])
                     normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
                     normal_list.extend([normal_vector])
-                    normal_reference.append(fidelity * i + j + 1+ normal_count)
+                    normal_reference.append(fidelity * i + j + 1 + normal_count + parabola_normal_indexing)
 
             current_angle += theta
-            
+
+
+    #outer edge
+    #finds first outer vertex for top and bottom parabolas
+    reference_zero_vertex_top = (segments - 1) * fidelity + 1 + 1
+    reference_zero_vertex_bottom = (segments - 1) * fidelity + 1 + segments * fidelity + 1 + 1
+
+    #adds faces
+    for i in range(fidelity - 1):
+        #faces
+        current_face = (reference_zero_vertex_top + i + vertex_count, reference_zero_vertex_bottom + i + vertex_count, reference_zero_vertex_bottom + i + 1 + vertex_count, reference_zero_vertex_top + i + 1 + vertex_count)
+        face_list.extend([current_face])
+
+        #normals
+        normal_vector = calc_normals(vertex_list[reference_zero_vertex_top + i - 1], vertex_list[reference_zero_vertex_bottom + i - 1], vertex_list[reference_zero_vertex_bottom + i + 1 - 1])
+        normal_vector = [normal_vector[0], normal_vector[1], normal_vector[2]]
+        normal_list.extend([normal_vector])
+        normal_reference.append(parabola_normal_indexing * 2 + i + 1)
+
+    #final rectangle
+    #face
+    current_face = (reference_zero_vertex_top + fidelity - 1 + vertex_count, reference_zero_vertex_bottom + fidelity - 1 + vertex_count, reference_zero_vertex_bottom + vertex_count, reference_zero_vertex_top + vertex_count)
+    face_list.extend([current_face])
+
+    #normal
+    normal_vector = calc_normals(vertex_list[reference_zero_vertex_top - 1], vertex_list[reference_zero_vertex_bottom - 1], vertex_list[reference_zero_vertex_bottom + fidelity - 1 - 1])
+    normal_vector = [-normal_vector[0], -normal_vector[1], -normal_vector[2]]
+    normal_list.extend([normal_vector])
+    normal_reference.append(parabola_normal_indexing * 2 + i + 2)
+
+
     #textures - generates placeholder texture coordinates
-    for i in range(fidelity * segments):
+    for i in range(2 * fidelity * segments + fidelity):
 
         texture_map_val = (1, 1)
         texture_list.extend([texture_map_val])
         texture_reference.append(i + 1 + texture_count)
 
     #updates references
-    vertex_count += fidelity * segments + 1
-    normal_count += fidelity * segments
-    texture_count += fidelity * segments
+    vertex_count += 2 * (fidelity * segments + 1)
+    normal_count += 2 * (fidelity * segments) + fidelity
+    texture_count += 2 * (fidelity * segments) + fidelity
 
-    #data to be written 
+    #data to be written
     add_feature(vertex_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name, material)
