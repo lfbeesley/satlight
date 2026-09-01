@@ -1,9 +1,9 @@
 # Generating an obj model with geometryBuilder
 
-geometryBuilder is a tool to quickly make basic satellite models for use in satlight for lightcurve simulations.
+geometryBuilder is a tool to quickly make basic satellite models for use in satlight's lightcurve simulations. It uses premade models and basic procedural shapes to construct a low fidelity object, enabling easy iteration of designs to aid in reducing reflected light visible on the ground.
 ## Setup
 
-Start by setting up the save file for the geometry by calling 'setup()'. This creates the obj and corresponding mtl file used for the object. It also sets up a global rotation which applies to all geometry created in this file.
+Start by setting up the save file for the geometry by calling ```setup()``` . This creates the obj and corresponding mtl file used for the object. It also sets up a global rotation which applies to all geometry created in this file.
 The mtl file is only used for graphical uses and is not read by satlight, which instead uses BRDFs. The graphical distinction may be useful when identifying which parts to apply which BRDFs to.
 
 ```python
@@ -20,7 +20,7 @@ z_rotation = 0                          # global rotations x, y, z in degrees ab
 
 ## Creating geometry
 
-### Preexisting models
+### Pre-existing models
 
 Premade obj files can be read in and added to the new file in the desired size, orientation, and position. 
 
