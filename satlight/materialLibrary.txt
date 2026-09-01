@@ -8,7 +8,7 @@ Ni 1.500000
 d 1.000000
 illum 3
 
-newmtl Dish
+newmtl White_Paint
 Ns 0.000000
 Ka 0.700000 0.700000 0.700000
 Kd 1.000000 1.000000 1.000000
@@ -28,7 +28,7 @@ Ni 1.500000
 d 1.000000
 illum 3
 
-newmtl Solar_panel
+newmtl Solar_Panel
 Ns 688.899963
 Ka 1.000000 1.000000 1.000000
 Kd 0.000023 0.042987 0.652370
