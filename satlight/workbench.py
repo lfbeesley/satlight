@@ -19,6 +19,7 @@ current_pos = [0, 0]
 mousexz = [0, 0]
 priordeltas = [0, 0]
 deltax = 0
+deltay = 0
 deltaz = 0
 zoom = 1
 shift = [0, 0]
@@ -550,6 +551,7 @@ def rotations(event):
     global priordeltas
     global deltax
     global deltaz
+    global deltay
 
     #gets mouse position
     current_pos = [event.x, event.y]
