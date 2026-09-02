@@ -2,10 +2,14 @@
 
 workbench is a graphical user interface used to build models using geomertyBuilders features. workbench loads two windows on launch, the file editor and interface, and the renderer. These are used to build the model quickly and display how the model will look in satlight.
 
+Load workbench by importing it.
+
+```python
+from satlight import workbench
+```
 ## Interface
 
 The interface allows components to be added with the same settings as in geometryBuilder. 
-
 
 ### Save file
 
@@ -28,6 +32,7 @@ There are 4 main sections containing inputs to add components. All inputs have d
 - Delete selected component: Marks the selected part as deleted and stops it being generated in the geometry
 - Generate geometry: Regenerates the geometry based on the created parts and reloads the model into the renderer
 - Close: Closes the interface and rendering window
+
 
 ## Renderer
 
