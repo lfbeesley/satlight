@@ -608,7 +608,7 @@ def button_down(event):
 def zoomin(event):
     #calculates zoom level based on scroll input
     global zoom
-    zoom += event.delta / (120 * 8)
+    zoom += event.delta * zoom / (120 * 8)
     if zoom < 0:
         zoom = 0
 
@@ -622,8 +622,8 @@ def shift_model(event):
     global zoom
 
     shift_pos = [event.x, event.y]
-    shift_delta_x = (shift_pos[0] - shift_clicked_pos[0]) * 2.7 / zoom
-    shift_delta_z = (shift_pos[1] - shift_clicked_pos[1]) * 2.7 / zoom
+    shift_delta_x = (shift_pos[0] - shift_clicked_pos[0]) * 5 * zoom
+    shift_delta_z = (shift_pos[1] - shift_clicked_pos[1]) * 5 * zoom
     #tracks current shift position
     shift = [shift_delta_x + total_shift[0], shift_delta_z + total_shift[1]]
 
