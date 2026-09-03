@@ -725,7 +725,7 @@ def prism_geometry(name, side_count, radius, height, taper = 1, is_hollow = Fals
 
 
 
-def parabola_geometry(name, radius, height, segments, fidelity = 36, material = "Aluminium", x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
+def parabola_geometry(name, radius, height, segments, fidelity = 36, material = "White_Paint", x_angle = 0, y_angle = 0, z_angle = 0, x_offset = 0, y_offset = 0, z_offset = 0):
     #generates parabolas
     #calculates parabola based on radius and height
     #calculates vertecies
