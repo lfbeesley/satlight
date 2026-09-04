@@ -116,7 +116,9 @@ geometryBuilder.parabola_geometry("Comms dish", radius = 0.3, height = 0.1, segm
 
 Rendering this object shows a main bus 1x1x1 metres, two 2x1 metre solar panels angled 30 degrees from the observer, and a 0.6 metre antenna.
 
-![[Box wing satellite.png|700]]
+
+<img width="736" height="310" alt="Box wing satellite" src="https://github.com/user-attachments/assets/026d23b0-8697-49bd-a951-d19062caede6" />
+
 
 
 ## Component library
