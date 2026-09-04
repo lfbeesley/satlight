@@ -132,7 +132,7 @@ def add_feature(vertecies, texture_coords, texture_index, normals, normal_index,
 
     object_count += 1
     with open(filepath, "a") as file:
-        file.write("o " + name + "\n")
+        file.write("o " + material + "\n")
 
     #inputs data and datatype
     filewrite(vertecies, "v")
@@ -389,7 +389,7 @@ def import_model(file, folder = "", scale = 1, x_angle = 0, y_angle = 0, z_angle
 
                 for char in line:
 
-                    if char == ' ':
+                    if char == ' ' or char == '\n':
                         if index_location == 2: #third digit is the normal
                             number = str(int(number) + normal_count)
                             face_line += number
@@ -1029,3 +1029,8 @@ def parabola_geometry(name, radius, height, segments, fidelity = 36, material = 
 
     #data to be written
     add_feature(vertex_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name, material)
+
+
+
+setup(r"A:\Uni work\2nd year internship\Satlight program", "write test")
+import_model("Surface solar panel 1x1", r"A:\Uni work\2nd year internship\Satlight program\Files for git\Components\Solar panels\High detail")
