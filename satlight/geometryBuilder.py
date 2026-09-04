@@ -1029,8 +1029,3 @@ def parabola_geometry(name, radius, height, segments, fidelity = 36, material = 
 
     #data to be written
     add_feature(vertex_list, texture_list, texture_reference, normal_list, normal_reference, face_list, name, material)
-
-
-
-setup(r"A:\Uni work\2nd year internship\Satlight program", "write test")
-import_model("Surface solar panel 1x1", r"A:\Uni work\2nd year internship\Satlight program\Files for git\Components\Solar panels\High detail")
