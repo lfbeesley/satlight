@@ -24,6 +24,8 @@ There are 4 main sections containing inputs to add components. All inputs have d
 - Prisms: All settings for prisms can be input. Click add prims button to add part
 - Dishes: All setting for parabolas can be input. No scale factors are used for parabolas. Click add dish button to add part
 
+Any object file can be used as a subassembly, including all parts in the geometryBuilder library.
+
 ### Other UI elements
 
 - Select a component: Once a part has been created, it will be available to select. Doing so will load its setting. If this does not happen, the load component button at the bottom of the interface will load the selected component
