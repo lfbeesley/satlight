@@ -140,9 +140,9 @@ def make_geometry(t_utc):
     geom.create_satellite_from_elements(
         a_km=a_km, e=0.0, i_deg=inc_deg,
         raan_deg=raan_deg, argp_deg=0.0, nu_deg=u_deg, epoch=t_utc)
-    geom.set_time((t_utc.year, t_utc.month, t_utc.day,
+    geom.set_time(t_utc.year, t_utc.month, t_utc.day,
                    t_utc.hour, t_utc.minute,
-                   t_utc.second + t_utc.microsecond / 1e6))
+                   t_utc.second + t_utc.microsecond / 1e6)
     return geom
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "satlight"
-version = "0.1.0a2"
+version = "0.1.0a3"
 authors = [
   { name = "L Beesley", email = "l.beesley@bham.ac.uk" },
 ]
@@ -18,7 +18,7 @@ dependencies = [
   "plotly",
   "xarray",
   "netCDF4",
-  "bpy==4.2.0",
+  "bpy==4.5.3",
   "mathutils==3.3.0",
   "hide_warnings",
 ]
@@ -33,6 +33,21 @@ include = ["satlight*"]
 
 [tool.setuptools.package-data]
 satlight = [
-  "data/ler555nm/*.dat",
   "data/ceres_albedo_monthly.npy",
+]
+# data/ler555nm/*.dat (14 files, 2.8 MB) is kept in the repo but
+# not shipped: nothing in the package reads it yet. Adding it back here when the
+# GOME/LER earthshine path has been implemented.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Default run is the fast offline tier. The heavier tiers are opt-in:
+#   pytest -m needs_ephemeris      skyfield + de421.bsp (downloads on first use)
+#   pytest -m "slow or needs_bpy"  Blender renders
+#   pytest -m ""                   everything
+addopts = "-m 'not needs_ephemeris and not needs_bpy and not slow'"
+markers = [
+  "slow: takes seconds or more",
+  "needs_bpy: requires Blender",
+  "needs_ephemeris: requires skyfield and a JPL ephemeris",
 ]

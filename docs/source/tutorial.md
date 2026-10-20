@@ -348,9 +348,22 @@ lightcurve.
   bus surfaces — `Renderer`'s `brdf` argument accepts a dict mapping substring
   matches in object names (e.g. `'solarPanel'`) to `(brdf_name, kwargs)` tuples,
   with a `'default'` entry as fallback.
-- Enable earthshine contributions via `add_earthshine=True` and
-  `Renderer.compute_earthshine()`, which uses the CERES-based monthly albedo
-  model for more realistic illumination near eclipse boundaries.
+- Build the renderer straight from a `Geometry` — `Renderer(obj_path,
+  geometry=geom, ...)` — and drive each frame with `renderer.observe(geom)`.
+  The sun and observer directions, the range (km to m), the eclipse fraction
+  and the Earth occultation all come off the Geometry that way. The explicit
+  `sun_direction` / `observer_direction` / `distance_to_observer` form still
+  works, for sweeps that have no orbit behind them.
+- Enable earthshine contributions via `add_earthshine=True`; `observe()` feeds
+  it the Geometry automatically, or pass `geometry=` to `update()` yourself.
+  The Earth is discretised into patches of equal solid angle as seen from the
+  satellite, each a Lambertian reflector of uniform albedo `earth_albedo`
+  (default 0.3, the global mean), and the sunlit ones are summed into one
+  effective source. It is not a small correction: over a sunlit Earth at
+  550 km it reaches ~490 W/m², 36% of the solar constant, and on epochs a
+  ground station can actually observe it ran 0 to 0.93 mag (median 0.55) on a
+  3-day La Palma test pass. The albedo has no geographic variation, so
+  land/ocean and cloud contrast are not represented.
 - See the {doc}`api` for the full parameter list on `Geometry` and
   `Renderer`.
 

@@ -13,8 +13,59 @@ load = Loader(_data_dir)
 
 # Constants
 R_EARTH_KM = R_earth.to(u.km).value
+# WGS84. The 21 km equatorial-polar difference matters for occultation tests.
+R_EARTH_EQ_KM = 6378.137
+R_EARTH_POLAR_KM = 6378.137 * (1.0 - 1.0 / 298.257223563)
 R_SUN_KM =  R_sun.to(u.km).value
 AU = au.to(u.km).value
+
+class ViewGeometry:
+    """The minimal viewing geometry a Renderer needs, for one epoch.
+
+    `Renderer` takes a `geometry=`, which is normally a full `Geometry` built
+    from an orbit. Plenty of legitimate work has no orbit behind it, though -
+    BRDF studies, phase-angle sweeps, attitude scans - and those still need a
+    way in. This is it: the same three attributes `Renderer` reads, and nothing
+    else.
+
+        geom = ViewGeometry(sun_lvlh, observer_lvlh, distance_km=550.0)
+        r = Renderer(obj_path, geometry=geom)
+
+    DISTANCE IS IN KILOMETRES, matching `Geometry.prop_distance`. The renderer
+    converts to metres internally. That conversion living in one place is the
+    whole reason the explicit three-vector constructor was removed: it used to
+    sit in every caller, and getting it wrong is a factor-1000 in flux, i.e.
+    7.5 magnitudes, with a perfectly normal-looking image to show for it.
+    """
+
+    __slots__ = ('incident_vector_lvlh', 'outgoing_vector_lvlh', 'prop_distance',
+                 'altitude_km')
+
+    def __init__(self, sun_lvlh, observer_lvlh, distance_km, altitude_km=None):
+        sun = np.asarray(sun_lvlh, dtype=float)
+        obs = np.asarray(observer_lvlh, dtype=float)
+        if sun.shape != (3,) or obs.shape != (3,):
+            raise ValueError(
+                f'ViewGeometry takes one epoch: sun and observer must be shape '
+                f'(3,), got {sun.shape} and {obs.shape}.')
+        n_sun, n_obs = np.linalg.norm(sun), np.linalg.norm(obs)
+        if n_sun == 0.0 or n_obs == 0.0:
+            raise ValueError('sun_lvlh and observer_lvlh must be non-zero.')
+        d = float(distance_km)
+        if not np.isfinite(d) or d <= 0.0:
+            raise ValueError(f'distance_km must be positive, got {distance_km}.')
+        self.incident_vector_lvlh = sun / n_sun
+        self.outgoing_vector_lvlh = obs / n_obs
+        self.prop_distance = d
+        # Only earthshine needs this: the Earth's angular size depends on
+        # altitude, which the slant range alone does not give.
+        self.altitude_km = None if altitude_km is None else float(altitude_km)
+
+    def __repr__(self):
+        return (f'ViewGeometry(sun={self.incident_vector_lvlh.round(4).tolist()}, '
+                f'observer={self.outgoing_vector_lvlh.round(4).tolist()}, '
+                f'distance_km={self.prop_distance:g})')
+
 
 class Geometry():
     """
@@ -123,6 +174,7 @@ class Geometry():
                 'earth': np.zeros(3) 
             }
 
+
         else:
             self.positions = {
                 'satellite': self.satellite.at(self.time).position.km, # automatically in GCRS
@@ -130,6 +182,7 @@ class Geometry():
                 'sun': (self.sun.at(self.time) - self.earth.at(self.time)).position.km, # Subtract to move from Barycentric to GCRS
                 'earth': np.zeros((3, len(self.time))) 
             }
+
 
     def _calculate_vectors(self):
         """Calculate and store all vectors and distances."""
@@ -146,6 +199,7 @@ class Geometry():
             'sat_to_sun_unit': self.incident_vector,
             'sat_to_obs_unit': self.outgoing_vector,
             'obs_to_sat_distance': self.prop_distance}
+
         
     
     def _calculate_lvlh_frame(self):
@@ -158,7 +212,10 @@ class Geometry():
             radial = -sat_pos / np.linalg.norm(sat_pos)
             h_vector = np.cross(sat_pos, sat_vel)
             orbit_normal = h_vector / np.linalg.norm(h_vector)
-            along_track = np.cross(orbit_normal, radial)
+            # along-track is n x r_hat, and r_hat is ZENITH (-radial), not the
+            # nadir vector stored in `radial`. Crossing with `radial` returns
+            # -velocity and makes the (along, cross, zenith) triad left-handed.
+            along_track = np.cross(orbit_normal, -radial)
             along_track = along_track / np.linalg.norm(along_track)
         else:
             # Array case - vectors are (3, N) shape
@@ -168,14 +225,16 @@ class Geometry():
             h_vector = np.cross(sat_pos, sat_vel, axis=0)
             orbit_normal = h_vector / np.linalg.norm(h_vector, axis=0)
             
-            along_track = np.cross(orbit_normal, radial, axis=0)
+            along_track = np.cross(orbit_normal, -radial, axis=0)
             along_track = along_track / np.linalg.norm(along_track, axis=0)
         
         # LVLH frame axis
+        # Right-handed: along x cross = zenith. Verified in
+        # tests/test_geometry_frames.py, which also pins along_track to +velocity.
         self.nadir = radial              # Toward Earth
-        self.along_track = along_track  # X-axis (velocity direction)
-        self.cross_track = orbit_normal # Y-axis (orbit normal)  
-        self.zenith = -radial       # Z-axis (away from Earth)
+        self.along_track = along_track   # X-axis, along velocity
+        self.cross_track = orbit_normal  # Y-axis, orbit normal
+        self.zenith = -radial            # Z-axis, away from Earth
 
         # Rotate 
         if sat_pos.ndim == 1:
@@ -202,6 +261,105 @@ class Geometry():
             dot_product = np.sum(incident * outgoing, axis=0)
         
         self.phase_angle = np.arccos(np.clip(dot_product, -1.0, 1.0))
+
+    def line_of_sight(self, atmosphere_km=0.0):
+        """Tangent height of the observer-to-satellite path, in km.
+
+        Positive means the path clears the Earth; negative means the satellite
+        is BEHIND the Earth as seen from the observer and cannot be observed at
+        all. For a ground station it changes sign at the geometric horizon.
+
+        This is the observer-side counterpart to eclipse_type(), which asks
+        only whether the SUN is blocked from the satellite. Both are needed: a
+        satellite can be in full sunlight and still be unobservable because the
+        Earth is in the way.
+
+        The Earth is treated as the WGS84 ELLIPSOID, not a sphere. That is not
+        a refinement - it is required for correctness. The equatorial radius
+        exceeds the polar by 21 km, so a spherical model of equatorial radius
+        places every station outside the tropics below its own surface: La
+        Palma at 28.8 deg comes out 2.5 km underground and every sightline is
+        reported as blocked. The test is done by scaling the polar axis so the
+        ellipsoid becomes a unit sphere, which makes it exact rather than
+        approximate.
+
+        atmosphere_km raises the blocking surface, so a path grazing the denser
+        atmosphere counts as obstructed; 20-50 km is reasonable if you want to
+        drop heavily extincted sightlines.
+
+        Returns a float for a single epoch, or an array for array times.
+        """
+        a = R_EARTH_EQ_KM + atmosphere_km
+        b = R_EARTH_POLAR_KM + atmosphere_km
+
+        sat = np.atleast_2d(self.positions['satellite'].T).T.astype(float).copy()
+        obs = np.atleast_2d(self.positions['observer'].T).T.astype(float).copy()
+
+        # Scale the polar axis so the ellipsoid becomes a sphere of radius a.
+        # The ellipsoid is fixed in the rotating frame, but its polar axis is
+        # the GCRS z-axis to within precession and polar motion - tens of
+        # metres here, far below anything that matters for an occultation.
+        k = a / b
+        sat[2] *= k
+        obs[2] *= k
+
+        d = sat - obs
+        L = np.linalg.norm(d, axis=0)
+        u = d / L
+
+        t = -np.sum(obs * u, axis=0)
+        closest = np.linalg.norm(obs + t * u, axis=0)
+
+        # When the closest approach falls outside the segment, the path's
+        # nearest approach to the centre is an endpoint, so nothing between
+        # observer and satellite can block it.
+        inside = (t > 0.0) & (t < L)
+        closest = np.where(inside, closest,
+                           np.minimum(np.linalg.norm(obs, axis=0),
+                                      np.linalg.norm(sat, axis=0)))
+
+        h = np.atleast_1d(closest - a)
+        return h if h.size > 1 else float(h[0])
+
+    def _blocked(self, atmosphere_km=0.0):
+        """Whether the Earth actually intervenes between observer and satellite.
+
+        Deliberately NOT derived from line_of_sight() > 0. When the satellite
+        is high in the sky the path's lowest point is the observer's own
+        position, so the tangent height is just the site altitude - and a site
+        at sea level would give exactly 0.0 and be misreported as blocked. The
+        obstruction only exists if the closest approach lies BETWEEN the two
+        endpoints and dips below the surface.
+        """
+        a = R_EARTH_EQ_KM + atmosphere_km
+        b = R_EARTH_POLAR_KM + atmosphere_km
+        sat = np.atleast_2d(self.positions['satellite'].T).T.astype(float).copy()
+        obs = np.atleast_2d(self.positions['observer'].T).T.astype(float).copy()
+        k = a / b
+        sat[2] *= k
+        obs[2] *= k
+        d = sat - obs
+        L = np.linalg.norm(d, axis=0)
+        u = d / L
+        t = -np.sum(obs * u, axis=0)
+        closest = np.linalg.norm(obs + t * u, axis=0)
+        return np.atleast_1d(((t > 0.0) & (t < L)) & (closest < a))
+
+    def is_visible(self, atmosphere_km=0.0):
+        """True when the satellite is not hidden behind the Earth."""
+        blocked = self._blocked(atmosphere_km)
+        vis = ~blocked
+        return vis if vis.size > 1 else bool(vis[0])
+
+    def observable_fraction(self, atmosphere_km=0.0):
+        """Fraction of full-sunlight flux that actually reaches the observer.
+
+        eclipse_type() * is_visible(): zero if the satellite is eclipsed OR
+        occulted, otherwise the illuminated fraction. This is the factor a
+        rendered flux must be multiplied by.
+        """
+        return np.asarray(self.eclipse_type()) * np.asarray(
+            self.is_visible(atmosphere_km), dtype=float)
 
     def eclipse_type(self):
         """Fraction of the solar disc visible from the satellite.
