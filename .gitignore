@@ -1,52 +1,44 @@
-
+# ---- OS / editor
 .DS_Store
-*/.DS_Store
-*/*/.DS_Store
-
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-__pycache__/
-*.pyc
 .vscode/
+.idea/
+
+# ---- Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ---- virtualenvs
+.venv/
+venv/
+
+# ---- JPL ephemerides: downloaded on first use, 16 MB each
+*.bsp
+
+# ---- large third-party data, fetched rather than committed
 data/BRDFDatabase/
 data/models/
-dist/
-output/
-*.egg-info/
-__pycache__/
-*.pyc
-.DS_Store
-dist/
-output/
-*.egg-info/
-__pycache__/
-*.pyc
-.DS_Store
 models/Starlink/
 models/Intelsat 1R/
 models/Falcon9 RB model/
-dist/
+
+# ---- separate research work: lives alongside the package, never ships with it
+AI1/
+large_spacecraft/
+reflect_orbital/
+multiaspect/
+hpc/
+
+# ---- run outputs
 output/
-*.egg-info/
-__pycache__/
-*.pyc
-.DS_Store
-models/Starlink/
-models/Intelsat 1R/
-models/Falcon9 RB model/
-dist/
-output/
-*.egg-info/
-__pycache__/
-*.pyc
-.DS_Store
-models/Starlink/
-models/Intelsat 1R/
-models/Falcon9 RB model/
-output/*.csv
-output/*.npy
-output/*.png
-output/*.mp4
+*.npy
+*.npz
+*.mp4
+*.log
+examples/_*.obj        # scratch meshes written by the example scripts
+examples/*.pdf
 docs/_build/
