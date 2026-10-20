@@ -20,46 +20,164 @@ BRDF_REGISTRY = {
     'oren_nayar':   oren_nayar,
 }
 
+# The viewing geometry used to be three loose arguments. They are gone: they
+# duplicated what a Geometry already knows, and put the km -> m conversion on the
+# range in every caller, where dropping it is a factor-1000 error in flux
+# (7.5 magnitudes) that still produces a perfectly normal-looking image.
+_REMOVED_GEOMETRY_ARGS = ('sun_direction', 'observer_direction',
+                          'distance_to_observer')
+
+
+def _reject_legacy(kwargs, where):
+    """Turn the removed arguments into a pointed error instead of a silent no-op.
+
+    `**legacy` exists only so they can be named in the message; without it they
+    would be swallowed as unexpected keywords and the geometry silently ignored.
+    """
+    used = [k for k in _REMOVED_GEOMETRY_ARGS if k in kwargs]
+    if used:
+        raise TypeError(
+            f'{where} no longer takes {", ".join(used)}; pass geometry= instead. '
+            f'For an orbit use a Geometry; otherwise '
+            f'ViewGeometry(sun_lvlh, observer_lvlh, distance_km=...). '
+            f'NOTE distance_km is in KILOMETRES, where the old '
+            f'distance_to_observer was in metres.')
+    if kwargs:
+        raise TypeError(f'{where} got unexpected keyword argument(s): '
+                        f'{", ".join(sorted(kwargs))}')
+
+
+def _require_geometry(geometry, where):
+    if geometry is None:
+        raise TypeError(
+            f'{where} requires geometry=. Pass a Geometry, or a '
+            f'ViewGeometry(sun_lvlh, observer_lvlh, distance_km=...) when there '
+            f'is no orbit behind the render.')
+
 class Renderer:
     """ To manage and render the object in blender and perform the ray-casting."""
-
-    def __init__(self, obj_path, sun_direction, observer_direction, distance_to_observer, resolution=(500,500), solar_constant = 1361, add_earthshine=False, add_shadows=True, brdf='lambertian', smooth_normals=False, smooth_angle_deg=30.0):
+    def __init__(self, obj_path, geometry=None, *,
+                 resolution=(500, 500), solar_constant=1361.0,
+                 brdf='lambertian', add_shadows=True,
+                 smooth_normals=False, smooth_angle_deg=30.0,
+                 add_earthshine=False, earth_albedo=0.3,
+                 earthshine_n_rings=4, earthshine_shadows=None,
+                 n_bounce=1, bounce_samples=8, bounce_seed=0,
+                 auto_ortho_scale=True, ortho_margin=1.06,
+                 **legacy):
         '''
-        obj_path can be either .obj or .stl
-        distance_to_observer in m
-        Resolution in (x,y)
-        sun and obs_directions are normalised
+        geometry : Geometry or ViewGeometry
+            REQUIRED. A `Geometry` for orbit-driven work, a `ViewGeometry` for
+            BRDF studies, phase sweeps and attitude scans. Only
+            `incident_vector_lvlh`, `outgoing_vector_lvlh` and `prop_distance`
+            are read, so anything exposing those will do. `prop_distance` is in
+            KILOMETRES; `_frame_from_geometry` does the conversion, once.
+        obj_path : .obj or .stl.
+        resolution : (x, y) pixels.
+        solar_constant : W/m^2.
+        brdf : one spec for the body, or {object_name: spec, 'default': spec}.
+        add_shadows : let the body shadow itself; one shadow ray per lit pixel.
+        smooth_normals, smooth_angle_deg : interpolate shading normals across
+            edges meeting at less than the angle. Redistributes light over the
+            disk, does not change the total.
+        add_earthshine : add reflected earthshine, as an extended source.
+        earth_albedo : uniform Bond albedo per Earth patch. 0.3 is the global
+            mean; None restores the per-patch CERES monthly map.
+        earthshine_n_rings : Earth-cap resolution, equal SOLID ANGLE per patch.
+            4 gives 88 patches and already matches a 960-patch grid to 0.001
+            mag. Cost is linear in the patch count.
+        earthshine_shadows : whether the spacecraft occludes its own earthshine
+            (a nadir panel shadowed by its stand-offs). None follows
+            `add_shadows`. Expensive: one shadow ray per patch per pixel.
+        bounce_samples, bounce_seed : cosine-weighted hemisphere samples per
+            scattering event, and the seed that makes them reproducible. Noise
+            goes as 1/sqrt(N); 8 is enough unless the indirect term is a large
+            fraction of the total.
+        ortho_margin : safety factor on the fitted frame; 1.06 = a 6% border.
 
-        smooth_normals: scene.ray_cast returns the flat FACE normal, so a
-        tessellated curved surface is shaded as a set of flat mirrors even
-        when the mesh carries smooth/custom vertex normals. For a specular
-        BRDF that turns one continuous glint into a train of discrete
-        flashes, spaced by twice the facet-to-facet normal step. Enabling
-        this interpolates the mesh's own vertex/loop normals at the hit
-        point instead. Default False so existing results are unchanged.
+        n_bounce
+            Scattering events per path. 1 (default) is single-bounce and is
+            EXACTLY the old behaviour, at no extra cost. 2 adds one
+            inter-reflection, which matters for concave geometry that sees
+            itself - corrugations, louvres, antenna stand-offs, box cavities -
+            and captures most of a series converging like (rho * F)^k. COST is
+            `bounce_samples ** (n_bounce - 1)` extra rays per lit pixel: 2 is
+            cheap-ish, 3 is 64x, 4 is not worth attempting.
+
+        auto_ortho_scale
+            Re-fit the orthographic frame to the body's PROJECTED extent on
+            every `update` (default). False restores the old fixed bounding-box
+            DIAGONAL, which is sized for the worst-case attitude and wastes
+            resolution on every other one: viewed end-on, Skynet 5D lands on
+            69 px instead of 469 and reads 0.070 mag too faint. That error
+            moves WITH attitude, so in a light curve it can masquerade as real
+            structure.
         '''
-        # Set constants
+        _reject_legacy(legacy, 'Renderer')
+        _require_geometry(geometry, 'Renderer')
+        sun, obs, dist_m = self._frame_from_geometry(geometry)
+
+        # --- viewing geometry
         self.obj_path = obj_path
-        self.resolution_x, self.resolution_y = resolution
-        self.aspect_ratio = self.resolution_x / self.resolution_y # width / height
-        self.solar_constant = solar_constant # in W
-        self.distance_to_observer = distance_to_observer # in m
-        self.sun_direction = sun_direction # may need to change to Vector(sun_direction) depending on geometry output
-        self.observer_direction = observer_direction
+        self.sun_direction = sun
+        self.observer_direction = obs
+        self.distance_to_observer = dist_m                  # metres
         self.nadir_direction = np.array([0., 0., -1.])
-        self.earthshine_irradiance = 0.0
-        self.earthshine_direction  = None 
-        self.add_earthshine = add_earthshine
+
+        # --- sensor and framing
+        self.resolution_x, self.resolution_y = resolution
+        self.aspect_ratio = self.resolution_x / self.resolution_y   # width / height
+        self.solar_constant = solar_constant                        # W/m^2
+        self.auto_ortho_scale = bool(auto_ortho_scale)
+        self.ortho_margin = float(ortho_margin)
+
+        # --- shading
         self.add_shadows = add_shadows
         self.smooth_normals = smooth_normals
         self.smooth_angle_deg = smooth_angle_deg
         self._smooth_cache = {}
+        self.brdf_map = brdf if isinstance(brdf, dict) else {'default': brdf}
 
-        # Set up BRDFs
-        if isinstance(brdf, dict):
-            self.brdf_map = brdf
-        else:
-            self.brdf_map = {'default': brdf}
+        # --- earthshine. `earthshine_irradiance` and `earthshine_direction` are
+        # the legacy single-source form, still populated for callers that read
+        # them; the per-patch arrays are the extended-source form `render`
+        # actually uses, in the SAME frame as `sun_direction`.
+        self.add_earthshine = add_earthshine
+        self.earth_albedo = earth_albedo
+        self.earthshine_n_rings = earthshine_n_rings
+        self.earthshine_shadows = (add_shadows if earthshine_shadows is None
+                                   else earthshine_shadows)
+        self.earthshine_irradiance = 0.0
+        self.earthshine_direction = None
+        self.earthshine_dirs = None
+        self.earthshine_patch_irradiance = None
+        self._earth_cap_cache = {}
+
+        # --- multiple scattering
+        self.n_bounce = int(n_bounce)
+        self.bounce_samples = int(bounce_samples)
+        self.bounce_seed = int(bounce_seed)
+        self._bounce_rng = np.random.default_rng(self.bounce_seed)
+
+    @staticmethod
+    def _frame_from_geometry(geometry):
+        """(sun, observer, distance_m) from a Geometry, for a SINGLE epoch.
+
+        The km -> m conversion on the range lives here rather than in every
+        caller: `Geometry.prop_distance` is in kilometres while the renderer
+        works in metres, and that mismatch is a factor-1000 error in flux, i.e.
+        7.5 magnitudes, with nothing to show for it in the image.
+        """
+        sun = np.asarray(geometry.incident_vector_lvlh, dtype=float)
+        obs = np.asarray(geometry.outgoing_vector_lvlh, dtype=float)
+        dist = np.asarray(geometry.prop_distance, dtype=float)
+        if sun.ndim > 1 or obs.ndim > 1 or dist.ndim > 0:
+            n = dist.size if dist.ndim else max(sun.shape[-1], obs.shape[-1])
+            raise ValueError(
+                f'Renderer renders one frame at a time, but this Geometry holds '
+                f'{n} epochs. Index it (geom_at(i)) or loop over epochs, calling '
+                f'update(geometry=...) per frame.')
+        return sun, obs, float(dist) * 1e3
 
     def initialise_scene(self):
         # Set-up scene
@@ -71,14 +189,6 @@ class Renderer:
 
     def _repair_normals(self, angle_deg=30.0):
         """Discard authored split normals and recompute them from geometry.
-
-        Several CAD/OBJ exports carry mis-indexed vertex normals: on this
-        Intelsat 1R model the median angle between a corner normal and its own
-        polygon's normal is ~90 deg on the solar panels and 45 deg on the
-        antenna hinges, i.e. the authored data is unusable and shading with it
-        would be worse than using flat faces. Clearing it and re-deriving with
-        an angle threshold restores the intent: smooth across a tessellated
-        curved dish, sharp across a genuine crease.
         """
         for o in list(bpy.context.scene.objects):
             if o.type != 'MESH':
@@ -143,40 +253,79 @@ class Renderer:
         
 
     def add_camera(self):
-        import mathutils as mu
-
-        self.camera_object = bpy.data.objects.new("Camera", bpy.data.cameras.new("Camera"))
+        """Create the orthographic camera and aim it from the current geometry."""
+        self.camera_object = bpy.data.objects.new(
+            'Camera', bpy.data.cameras.new('Camera'))
         self.camera_object.data.type = 'ORTHO'
         bpy.context.collection.objects.link(self.camera_object)
         bpy.context.scene.camera = self.camera_object
+        self._set_pixel_scale()
+        self._place_camera(self.observer_direction)
+
+    def _set_pixel_scale(self):
+        """Push `ortho_scale` to the camera and re-derive the pixel footprint.
+
+        `pixel_area` IS the radiometry - per-pixel flux scales with it - so it
+        must never be left stale behind a change of frame width.
+        """
         self.camera_object.data.ortho_scale = self.ortho_scale
-
-        self.view_target = self._assembly_center()
-        self.camera_object.location = self.view_target + mu.Vector((0.0, 0.0, -1.0)) * self.ortho_scale
-        # Camera looks toward origin: forward = -obs
-        # Camera +Z (backward) = obs
-        # right = X (along-track), up = Y (cross-track)
-        forward = mu.Vector((0.0, 0.0, 1.0))   # always looking up at satellite
-        right   = mu.Vector((1.0, 0.0, 0.0))
-        up      = mu.Vector((0.0, 1.0, 0.0))
-
-        # Gram-Schmidt: ensure right is orthogonal to forward
-        right = (right - right.dot(forward) * forward).normalized()
-        up    = forward.cross(right).normalized()
-
-        # Rotation matrix rows = camera basis vectors in world space
-        # Row 0: camera X (right), Row 1: camera Y (up), Row 2: camera Z (backward = -forward)
-        rot = mu.Matrix((
-            [ right.x,    right.y,    right.z   ],
-            [ up.x,       up.y,       up.z      ],
-            [-forward.x, -forward.y, -forward.z ],
-        )).transposed()
-
-        self.camera_object.rotation_euler = rot.to_euler()
-
         self.pixel_size_x = self.ortho_scale / self.resolution_x
         self.pixel_size_y = self.ortho_scale / self.aspect_ratio / self.resolution_y
-        self.pixel_area   = self.pixel_size_x * self.pixel_size_y
+        self.pixel_area = self.pixel_size_x * self.pixel_size_y
+
+    def _place_camera(self, observer_direction):
+        """Aim the camera at the assembly from `observer_direction`, then fit the
+        frame and the standoff to what it actually sees.
+
+        The single camera-placement path. `add_camera` and `update` both need
+        exactly this, and while it lived in two copies they disagreed:
+        `add_camera` hardcoded the -Z axis, so `initialise_scene -> add_camera
+        -> render` silently rendered from NADIR whatever geometry it was given,
+        and for an oblique observer that meant looking into the back of the
+        model and returning zero flux.
+        """
+        import mathutils as mu
+
+        obs = mu.Vector(
+            np.asarray(observer_direction, dtype=float).tolist()).normalized()
+        self.view_target = self._assembly_center()
+        self.camera_object.location = self.view_target + obs * self.ortho_scale
+
+        # Camera -Z points at the target. `right` and `up` are built from the
+        # world axis LEAST parallel to the view, so the basis cannot degenerate
+        # whichever direction the observer sits in.
+        to_target = (self.view_target - self.camera_object.location).normalized()
+        comps = [abs(to_target.x), abs(to_target.y), abs(to_target.z)]
+        axes = [mu.Vector((1, 0, 0)), mu.Vector((0, 1, 0)), mu.Vector((0, 0, 1))]
+        ref = axes[comps.index(min(comps))]
+        right = to_target.cross(ref).normalized()
+        up = right.cross(to_target).normalized()
+        self.camera_object.rotation_euler = mu.Matrix((
+            [right.x,      right.y,      right.z     ],
+            [up.x,         up.y,         up.z        ],
+            [-to_target.x, -to_target.y, -to_target.z],
+        )).transposed().to_euler()
+
+        self._fit_frame_and_standoff(obs)
+
+    def _fit_frame_and_standoff(self, obs):
+        """Frame width from the PROJECTED extent, standoff from the ALONG-VIEW
+        extent. Two unrelated quantities that used to be one - see
+        `_safe_standoff`."""
+        bpy.context.view_layer.update()   # extents are stale until reoriented
+        ext = self._view_space_extents()
+        if ext is None:
+            return
+        hx, hy, hz = ext
+        if self.auto_ortho_scale:
+            self.ortho_scale = self._fit_ortho_scale(hx, hy)
+            self._set_pixel_scale()
+        # Applied whether or not the frame is auto-fitted: the old
+        # `obs * ortho_scale` placement puts the camera plane inside the body
+        # for any hand-tightened frame.
+        self.camera_object.location = (self.view_target
+                                       + obs * self._safe_standoff(hz))
+        bpy.context.view_layer.update()
 
     def _assembly_center(self):
         """World bbox centre of the current geometry, whatever attitude or
@@ -279,7 +428,7 @@ class Renderer:
         arrow_len  = max_extent * 1.2
         cone_size  = max_extent * 0.08
 
-        # ── 5. Sun / observer directions (fixed in LVLH, never rotated) ─────────
+        # Sun / observer directions (fixed in LVLH)
         sun_dir = np.array(self.sun_direction,      dtype=float)
         obs_dir = np.array(self.observer_direction, dtype=float)
 
@@ -341,7 +490,7 @@ class Renderer:
                 showlegend=False, hoverinfo='skip',
             ))
 
-        # LVLH axes — fixed, never rotated
+        # LVLH axes — fixed
         _arrow([1, 0, 0], "Along-Track (X)", "rgb(220,  50,  50)")
         _arrow([0, 1, 0], "Orbit Normal (Y)", "rgb( 50, 160,  50)")
         _arrow([0, 0, 1], "Zenith (Z)",       "rgb( 50,  80, 220)")
@@ -418,11 +567,6 @@ class Renderer:
 
         me.calc_loop_triangles()
 
-        # Split ("loop"/corner) normals, which respect sharp edges -- essential
-        # here, because plain vertex normals average across a thin slab's face
-        # and its side walls and would tilt a flat panel by ~45 deg. Blender
-        # >=4.1 computes these automatically and exposes mesh.corner_normals;
-        # older versions need the now-removed calc_normals_split() first.
         loop_normals, use_loops = None, False
         try:
             if not hasattr(me, 'corner_normals') and hasattr(me, 'calc_normals_split'):
@@ -452,10 +596,6 @@ class Renderer:
         for ti, pi in enumerate(tri_poly):
             poly_tris.setdefault(pi, []).append(ti)
 
-        # Flat-float per-triangle cache for the hot path. _shading_normal runs
-        # once per ray hit (~10k/frame); numpy on 3-vectors costs more in
-        # overhead than it saves at that size, so precompute everything the
-        # barycentric solve needs as plain Python floats.
         src_n = loop_normals if use_loops else vert_normals
         idx_n = tri_loops if use_loops else tri_verts
         tri_cache = []
@@ -507,7 +647,7 @@ class Renderer:
     def _shading_normal(self, obj, face_index, loc_world, face_normal):
         """Barycentric-interpolated shading normal at a hit point.
 
-        Plain-float arithmetic throughout: this runs once per ray hit, where
+        Plain-float arithmetic: this runs once per ray hit, where
         numpy's per-call overhead on 3-vectors dominates the actual work.
         Returns a 3-tuple. Falls back to the geometric face normal if anything
         is degenerate.
@@ -577,104 +717,204 @@ class Renderer:
         except Exception:
             return face_normal
 
-    def _build_patch_template(self, n_rings=40):
-        """Build (and cache) the static Driscoll-Healy patch grid + per-patch CERES albedo.
-        Independent of time/geometry, so only needs to run once."""
-        if hasattr(self, '_patch_template') and self._patch_template is not None:
-            return self._patch_template
+    def _earth_cap(self, altitude_km, n_rings):
+        """Equal-SOLID-ANGLE discretisation of the Earth cap seen from the satellite.
+
+        WHY SOLID ANGLE AND NOT AREA. The earthshine integral weights each patch
+        by the solid angle it subtends at the satellite, so discretising the
+        Earth in equal surface AREA (as this method used to) piles samples into
+        the few patches directly beneath the satellite, under-resolves the limb,
+        and reads low at LEO. Equal solid angle samples exactly what the integral
+        weights by. The total is gated against the analytic spherical cap
+        2*pi*(1 - cos(alpha)) in tests/test_earthshine_extended.py.
+
+        Returns (dirs, omegas, normals): unit vectors FROM the satellite toward
+        each patch, their solid angles in steradians, and the outward surface
+        normal where each direction strikes. Canonical frame, nadir along -Z;
+        `compute_earthshine` rotates them onto `self.nadir_direction`.
+        Cached per (altitude, n_rings).
+        """
+        cache = self.__dict__.setdefault('_earth_cap_cache', {})
+        key = (round(float(altitude_km), 1), int(n_rings))
+        if key in cache:
+            return cache[key]
 
         R_EARTH = 6371.0
-        albedo_grid = self._load_ceres_albedo()
+        r_sat = R_EARTH + float(altitude_km)
+        if r_sat <= R_EARTH:
+            raise ValueError(
+                f'altitude_km = {altitude_km} puts the satellite inside the Earth '
+                f'(radius {R_EARTH:.0f} km); it must be positive.')
+        alpha = np.arcsin(R_EARTH / r_sat)
+        cos_edges = np.linspace(1.0, np.cos(alpha), int(n_rings) + 1)
+        sat = np.array([0.0, 0.0, r_sat])
 
-        sin_edges    = np.linspace(-1, 1, n_rings + 1)
-        sin_mids     = (sin_edges[:-1] + sin_edges[1:]) / 2
-        phi_mids     = np.arcsin(sin_mids)
-        d_sinphi_arr = np.diff(sin_edges)
-        n_lon        = 2 * n_rings
-        d_lon        = 2 * np.pi / n_lon
-        lons         = (np.arange(n_lon) + 0.5) * d_lon
+        dirs, omegas, norms = [], [], []
+        for i in range(int(n_rings)):
+            c0, c1 = cos_edges[i], cos_edges[i + 1]
+            theta = np.arccos(0.5 * (c0 + c1))
+            n_phi = max(1, int(round(2 * np.pi * np.sin(theta) / (c0 - c1)))) if theta > 0 else 1
+            n_phi = min(n_phi, 24)
+            dOmega = 2 * np.pi * (c0 - c1) / n_phi
+            for j in range(n_phi):
+                phi = 2 * np.pi * (j + 0.5) / n_phi
+                d = np.array([np.sin(theta) * np.cos(phi),
+                              np.sin(theta) * np.sin(phi),
+                              -np.cos(theta)])          # nadir = -Z
+                b = 2.0 * np.dot(sat, d)
+                c = np.dot(sat, sat) - R_EARTH ** 2
+                disc = b * b - 4.0 * c
+                if disc <= 0:
+                    continue                            # ray misses the Earth
+                pt = sat + ((-b - np.sqrt(disc)) / 2.0) * d
+                dirs.append(d)
+                omegas.append(dOmega)
+                norms.append(pt / np.linalg.norm(pt))
 
-        cs, As = [], []
-        for phi, dsp in zip(phi_mids, d_sinphi_arr):
-            cl = np.cos(phi)
-            cs.append(np.stack([
-                R_EARTH * cl * np.cos(lons),
-                R_EARTH * cl * np.sin(lons),
-                np.full(n_lon, R_EARTH * np.sin(phi))
-            ], axis=1))
-            As.append(np.full(n_lon, R_EARTH**2 * dsp * d_lon))
+        out = (np.array(dirs), np.array(omegas), np.array(norms))
+        cache[key] = out
+        return out
 
-        centers_gcrs = np.vstack(cs)
-        areas        = np.concatenate(As)
+    @staticmethod
+    def _align_to_nadir(vectors, nadir_direction):
+        """Rotate canonical (nadir = -Z) vectors so -Z lands on `nadir_direction`."""
+        n = np.asarray(nadir_direction, dtype=float)
+        n = n / np.linalg.norm(n)
+        z = np.array([0.0, 0.0, -1.0])
+        v = np.cross(z, n)
+        c = float(np.dot(z, n))
+        if np.linalg.norm(v) < 1e-12:
+            R = np.eye(3) if c > 0 else -np.eye(3)
+        else:
+            vx = np.array([[0.0, -v[2], v[1]],
+                           [v[2], 0.0, -v[0]],
+                           [-v[1], v[0], 0.0]])
+            R = np.eye(3) + vx + vx @ vx * (1.0 / (1.0 + c))
+        return np.asarray(vectors, dtype=float) @ R.T
 
-        # NOTE: lat/lon here are taken directly from GCRS x,y,z without correcting
-        # for Earth's rotation (GMST), same simplification as test_earthshine_leo.py.
-        # Fine for a demonstrator; flag as future work if it comes up.
-        x, y, z  = centers_gcrs[:, 0], centers_gcrs[:, 1], centers_gcrs[:, 2]
-        lats_deg = np.degrees(np.arcsin(z / R_EARTH))
-        lons_deg = np.degrees(np.arctan2(y, x))
+    @staticmethod
+    def _altitude_from_geometry(geometry):
+        """Altitude in km. Earthshine needs this specifically: the Earth's angular
+        size depends on altitude, which the slant range alone does not give."""
+        alt = getattr(geometry, 'altitude_km', None)
+        if alt is not None:
+            return float(alt)
+        pos = getattr(geometry, 'positions', None)
+        if pos is not None and 'satellite' in pos:
+            r = np.asarray(pos['satellite'], dtype=float)
+            if r.ndim > 1:
+                raise ValueError(
+                    f'compute_earthshine needs a single epoch, got {r.shape[-1]}.')
+            return float(np.linalg.norm(r)) - 6371.0
+        raise TypeError(
+            'geometry carries no altitude: a Geometry supplies it through '
+            'positions["satellite"], a ViewGeometry through altitude_km=.')
 
-        lat_idx = np.clip(np.floor(90 - lats_deg).astype(int), 0, 179)
-        lon_idx = np.clip(np.floor(lons_deg + 180).astype(int), 0, 359)
-        albedos = albedo_grid[lat_idx, lon_idx]
+    def compute_earthshine(self, geometry=None, n_rings=None,
+                           albedo=None, verbose=False, **legacy):
+        """Earthshine as an EXTENDED source: one direction + irradiance per patch.
 
-        self._patch_template = dict(centers_gcrs=centers_gcrs, areas=areas, albedos=albedos)
-        return self._patch_template
+        A patch of Earth subtending solid angle omega with radiance L is, to any
+        surface element, exactly a directional source of irradiance
 
-        
-    def compute_earthshine(self, geometry, n_rings=40):
-        """
-        Compute earthshine irradiance + an effective source direction using
-        CERES monthly albedo per patch. Call once per frame (geometry changes
-        each timestep) — the static patch grid + albedo lookup is cached.
+            E = L * omega        arriving from that patch's direction,
+
+        so the visible Earth becomes a set of directional sources that `render`
+        sums over. This replaces the previous treatment, which collapsed the
+        Earth into ONE effective direction and one total irradiance. A lumped
+        direction is wrong for an extended source: a facet perpendicular to it
+        collects exactly zero while physically still seeing half the disc, and no
+        single direction can represent a source 68 deg wide at LEO.
+
+        Call once per frame, before `render`. Directions are produced in the same
+        frame as `self.sun_direction`, with nadir taken as `self.nadir_direction`.
+
+        Parameters
+        ----------
+        geometry : satlight.geometry.Geometry, optional
+            Compatibility path: altitude and Sun direction are taken from it, so
+            they arrive in LVLH. If you render in a ROLLED BODY FRAME, pass
+            `altitude_km` and `sun_direction` in that frame instead, or the Earth
+            will sit at the wrong attitude.
+        altitude_km, sun_direction :
+            Explicit alternative to `geometry`, in the render frame.
+        n_rings : int, optional
+            Overrides `self.earthshine_n_rings` for this call.
+
+        Sets `earthshine_dirs` (N,3) and `earthshine_patch_irradiance` (N,), and
+        for backwards compatibility also `earthshine_irradiance` (the total on a
+        plate facing the Earth) and `earthshine_direction` (flux-weighted mean).
         """
         R_EARTH = 6371.0
-        template = self._build_patch_template(n_rings)
-        centers_gcrs, areas, albedos = template['centers_gcrs'], template['areas'], template['albedos']
+        # `compute_earthshine` is usable on a Renderer that has no Blender scene
+        # (it needs only a radius and a Sun direction), so read the two settings
+        # it depends on defensively rather than requiring a full __init__.
+        rings = n_rings if n_rings is not None else getattr(
+            self, 'earthshine_n_rings', 4)
+        nadir = np.asarray(getattr(self, 'nadir_direction', (0.0, 0.0, -1.0)),
+                           dtype=float)
 
-        R_mat = np.stack([
-            geometry.along_track,
-            geometry.cross_track,
-            -geometry.nadir
-        ], axis=0)
+        used = [k for k in ('altitude_km', 'sun_direction') if k in legacy]
+        if used:
+            raise TypeError(
+                f'compute_earthshine no longer takes {", ".join(used)}; both come '
+                f'off the geometry now. Use a Geometry, or ViewGeometry(..., '
+                f'altitude_km=...).')
+        if legacy:
+            raise TypeError(f'compute_earthshine got unexpected keyword '
+                            f'argument(s): {", ".join(sorted(legacy))}')
+        if geometry is None:
+            raise TypeError(
+                'compute_earthshine requires geometry=. Pass a Geometry, or a '
+                'ViewGeometry(..., altitude_km=...).')
+        altitude_km = self._altitude_from_geometry(geometry)
+        sun_direction = np.asarray(geometry.incident_vector_lvlh, dtype=float)
 
-        sat_pos_gcrs = geometry.positions['satellite']
+        sun = np.asarray(sun_direction, dtype=float)
+        sun = sun / np.linalg.norm(sun)
 
-        rel          = centers_gcrs - sat_pos_gcrs
-        centers_lvlh = (R_mat @ rel.T).T
+        dirs, omegas, norms = self._earth_cap(altitude_km, rings)
+        dirs = self._align_to_nadir(dirs, nadir)
+        norms = self._align_to_nadir(norms, nadir)
 
-        earth_centre_lvlh = R_mat @ (np.zeros(3) - sat_pos_gcrs)
-        norms_lvlh = centers_lvlh - earth_centre_lvlh
-        norms_lvlh /= np.linalg.norm(norms_lvlh, axis=1, keepdims=True)
+        rho = self.earth_albedo if albedo is None else albedo
+        if rho is not None:
+            albedos = np.full(norms.shape[0], float(rho))
+        else:
+            # Per-patch CERES map. NOTE lat/lon come from the patch normal with
+            # no GMST correction, so the continents sit at an arbitrary
+            # longitude -- prefer the uniform albedo until that is fixed.
+            grid = self._load_ceres_albedo()
+            lat = np.degrees(np.arcsin(np.clip(norms[:, 2], -1.0, 1.0)))
+            lon = np.degrees(np.arctan2(norms[:, 1], norms[:, 0]))
+            albedos = grid[np.clip(np.floor(90 - lat).astype(int), 0, 179),
+                           np.clip(np.floor(lon + 180).astype(int), 0, 359)]
 
-        sun_lvlh = geometry.incident_vector_lvlh
-        sat_lvlh = np.zeros(3)
+        # Lambertian Earth; patches in darkness contribute nothing.
+        cos_sun = np.clip(norms @ sun, 0.0, None)
+        E = albedos * self.solar_constant * cos_sun / np.pi * omegas
 
-        to_sat  = sat_lvlh - centers_lvlh
-        dist_km = np.linalg.norm(to_sat, axis=1)
-        cos_sat = np.sum(norms_lvlh * (to_sat / dist_km[:, None]), axis=1)
-        cos_sun = norms_lvlh @ sun_lvlh
-        mask    = (cos_sun > 0) & (cos_sat > 0)
+        lit = E > 0.0
+        self.earthshine_dirs = dirs[lit]
+        self.earthshine_patch_irradiance = E[lit]
 
-        if not np.any(mask):
+        if not np.any(lit):
             self.earthshine_irradiance = 0.0
-            self.earthshine_direction  = None
+            self.earthshine_direction = None
             return
 
-        dE = (albedos[mask] / np.pi) * self.solar_constant \
-            * cos_sun[mask] * cos_sat[mask] \
-            * (areas[mask] * 1e6) / (dist_km[mask] * 1e3)**2
+        # Legacy scalars, kept so existing callers still read something sensible;
+        # `render` uses the per-patch arrays above.
+        ci = np.clip(self.earthshine_dirs @ nadir, 0.0, None)
+        self.earthshine_irradiance = float(np.sum(self.earthshine_patch_irradiance * ci))
+        w = self.earthshine_patch_irradiance[:, None] * self.earthshine_dirs
+        mean_dir = np.sum(w, axis=0)
+        self.earthshine_direction = mean_dir / np.linalg.norm(mean_dir)
+        if verbose:
+            print(f'Earthshine: {self.earthshine_dirs.shape[0]} lit patches, '
+                  f'{self.earthshine_irradiance:.4f} W/m^2 on a nadir plate '
+                  f'(mean direction {self.earthshine_direction.round(3)})')
 
-        self.earthshine_irradiance = float(np.sum(dE))
-
-        # Weighted effective direction FROM satellite TOWARD the illuminating Earth
-        # (same convention as sun_direction — a unit vector pointing at the source)
-        dirs = centers_lvlh[mask] / dist_km[mask][:, None]
-        weighted_dir = np.sum(dE[:, None] * dirs, axis=0)
-        self.earthshine_direction = weighted_dir / np.linalg.norm(weighted_dir)
-
-        print(f"Earthshine irradiance: {self.earthshine_irradiance:.4f} W/m²  "
-            f"(effective direction: {self.earthshine_direction.round(3)})")
 
     def _load_ceres_albedo(self):
         """Load and cache the CERES monthly albedo grid (lat x lon)."""
@@ -700,35 +940,178 @@ class Renderer:
         return self._resolve(self.brdf_map.get('default', 'lambertian'))
 
     
-    def update(self, sun_direction, observer_direction, distance_to_observer):
-        """Update geometry for next timestep — call before render()."""
+    def _view_space_extents(self):
+        """Half-extents of the geometry about the VIEW TARGET, in camera axes.
+
+        Returns (across, up, along-view). Measured about the view target rather
+        than the camera, so the result does not depend on where the camera
+        currently sits - otherwise the along-view extent would include the
+        camera's own standoff and grow every time `update` is called.
+
+        Bounding-box corners bound the geometry and there are only 8 per object,
+        so this is cheap enough to run every frame.
+        """
         import mathutils as mu
-        
-        self.sun_direction        = sun_direction
-        self.observer_direction   = observer_direction
-        self.distance_to_observer = distance_to_observer
 
-        obs = observer_direction.normalized()
-        self.view_target = self._assembly_center()
-        self.camera_object.location = self.view_target + obs * self.ortho_scale
+        M = self.camera_object.matrix_world.to_3x3()
+        right = M @ mu.Vector((1.0, 0.0, 0.0))
+        up = M @ mu.Vector((0.0, 1.0, 0.0))
+        fwd = M @ mu.Vector((0.0, 0.0, 1.0))
+        tgt = self.view_target
+        hx = hy = hz = 0.0
+        found = False
+        for obj in bpy.context.scene.objects:
+            if obj.type != 'MESH':
+                continue
+            for corner in obj.bound_box:
+                d = (obj.matrix_world @ mu.Vector(corner)) - tgt
+                hx = max(hx, abs(d.dot(right)))
+                hy = max(hy, abs(d.dot(up)))
+                hz = max(hz, abs(d.dot(fwd)))
+                found = True
+        return (hx, hy, hz) if found else None
 
-        to_origin = (self.view_target - self.camera_object.location).normalized()
+    def _fit_ortho_scale(self, hx, hy):
+        """Frame width that just contains the projected geometry, plus margin."""
+        return 2.0 * max(hx, hy * self.aspect_ratio) * self.ortho_margin
 
-        # Build rotation: camera -Z points toward origin
-        abs_comps  = [abs(to_origin.x), abs(to_origin.y), abs(to_origin.z)]
-        world_axes = [mu.Vector((1,0,0)), mu.Vector((0,1,0)), mu.Vector((0,0,1))]
-        ref_axis   = world_axes[abs_comps.index(min(abs_comps))]  # least-parallel axis to to_origin
-        right = to_origin.cross(ref_axis).normalized()
-        up    = right.cross(to_origin).normalized()
+    def _safe_standoff(self, hz):
+        """How far back the camera plane must sit to leave the body in front of it.
 
-        rot = mu.Matrix((
-            [right.x,      right.y,      right.z     ],
-            [up.x,         up.y,         up.z        ],
-            [-to_origin.x, -to_origin.y, -to_origin.z],
-        )).transposed()
+        THIS IS NOT A FUNCTION OF ortho_scale. An orthographic projection does not
+        care where along the view axis the camera sits - but `render` starts its
+        primary rays ON the camera plane, so any geometry behind that plane is
+        silently dropped. The requirement is purely "clear the body along the view
+        axis", which is `hz`. Deriving it from ortho_scale (a frame WIDTH) instead
+        conflates two unrelated quantities and breaks as soon as the frame is
+        tightened: a 5.4 m frame on a body whose arms reach 17 m along the view
+        axis put the camera plane inside a solar array.
+        """
+        return max(hz * 2.0, 1.0)
 
-        self.camera_object.rotation_euler = rot.to_euler()
-        
+    def update(self, geometry=None, **legacy):
+        """Set the viewing geometry for the next frame - call before render().
+
+        Takes a `Geometry` or a `ViewGeometry`, the same as the constructor.
+        """
+        import mathutils as mu
+
+        _reject_legacy(legacy, 'update()')
+        _require_geometry(geometry, 'update()')
+        sun, obs, dist_m = self._frame_from_geometry(geometry)
+
+        self.sun_direction = mu.Vector(np.asarray(sun).tolist())
+        self.observer_direction = mu.Vector(np.asarray(obs).tolist())
+        self.distance_to_observer = dist_m
+        self._place_camera(self.observer_direction)
+
+    # ------------------------------------------------------------------
+    # multiple scattering
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _cosine_hemisphere(normal, n_samples, rng):
+        """Cosine-weighted directions about `normal`. Returns (N,3) unit vectors.
+
+        Cosine weighting is the natural measure here: the reflected-radiance
+        integral carries a cos(theta) factor, so sampling proportional to it
+        makes the estimator's weight independent of angle and kills most of the
+        variance that uniform hemisphere sampling would introduce.
+        """
+        n = np.asarray(normal, dtype=float)
+        # any vector not parallel to n, to build a tangent frame
+        a = np.array([1.0, 0.0, 0.0]) if abs(n[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        t = np.cross(n, a); t /= np.linalg.norm(t)
+        b = np.cross(n, t)
+        u1 = rng.random(n_samples)
+        u2 = rng.random(n_samples)
+        r = np.sqrt(u1)
+        phi = 2.0 * np.pi * u2
+        x = r * np.cos(phi)
+        y = r * np.sin(phi)
+        z = np.sqrt(np.maximum(0.0, 1.0 - u1))
+        return x[:, None] * t + y[:, None] * b + z[:, None] * n
+
+    def _direct_radiance(self, depsgraph, ray_cast, loc, n_np, obj_name, out_dir):
+        """Radiance leaving a surface point toward `out_dir`, from Sun + earthshine.
+
+        W/m^2/sr. This is the single-bounce shading, factored out so that
+        secondary hits can be shaded with exactly the same physics as primary
+        ones (same BRDF, same shadow test, same earthshine patches).
+        """
+        brdf_func, brdf_kwargs = self._brdf_cache[obj_name]
+        eps = self.ortho_scale * 1e-5
+        origin = Vector((loc.x + n_np[0] * eps,
+                         loc.y + n_np[1] * eps,
+                         loc.z + n_np[2] * eps))
+        L = 0.0
+
+        sun_np = np.asarray(self.sun_direction, dtype=float)
+        if float(n_np @ sun_np) > 0.0:
+            lit = True
+            if self.add_shadows:
+                lit = not ray_cast(depsgraph, origin,
+                                   Vector(sun_np.tolist()))[0]
+            if lit:
+                L += brdf_func(n_np, sun_np, out_dir, **brdf_kwargs) * self.solar_constant
+
+        if (self.add_earthshine and self.earthshine_dirs is not None
+                and len(self.earthshine_dirs) > 0):
+            for d, e in zip(self.earthshine_dirs, self.earthshine_patch_irradiance):
+                if float(n_np @ d) <= 0.0:
+                    continue
+                if self.earthshine_shadows and ray_cast(
+                        depsgraph, origin, Vector(np.asarray(d).tolist()))[0]:
+                    continue
+                L += brdf_func(n_np, d, out_dir, **brdf_kwargs) * e
+        return L
+
+    def _indirect_radiance(self, depsgraph, ray_cast, loc, n_np, obj_name,
+                           out_dir, depth):
+        """Radiance toward `out_dir` that arrived via at least one other surface.
+
+        Monte Carlo estimate of
+
+            L_ind = integral f_r(n, w, out) L_in(w) cos(theta) dw
+
+        with cosine-weighted sampling. The BRDF callables in satlight return
+        f_r * cos(theta), so dividing by cos(theta) recovers f_r and the
+        cosine-weighted estimator reduces to (pi / N) * sum f_r * L_in.
+        """
+        if depth >= self.n_bounce:
+            return 0.0
+        brdf_func, brdf_kwargs = self._brdf_cache[obj_name]
+        eps = self.ortho_scale * 1e-5
+        origin = Vector((loc.x + n_np[0] * eps,
+                         loc.y + n_np[1] * eps,
+                         loc.z + n_np[2] * eps))
+        dirs = self._cosine_hemisphere(n_np, self.bounce_samples, self._bounce_rng)
+
+        total = 0.0
+        for w in dirs:
+            hit, loc2, nrm2, face2, obj2, _ = ray_cast(depsgraph, origin,
+                                                       Vector(w.tolist()))
+            if not hit or obj2 is None:
+                continue                      # ray escaped to space: no incoming radiance
+            n2 = np.array((nrm2.x, nrm2.y, nrm2.z))
+            if self.smooth_normals:
+                n2 = np.array(self._shading_normal(obj2, face2, loc2, tuple(n2)))
+            back = -w                          # from the second point toward this one
+            if float(n2 @ back) <= 0.0:
+                n2 = -n2                       # we hit the far side; use the facing normal
+            L_in = self._direct_radiance(depsgraph, ray_cast, loc2, n2,
+                                         obj2.name, back)
+            if self.n_bounce - depth > 1:
+                L_in += self._indirect_radiance(depsgraph, ray_cast, loc2, n2,
+                                                obj2.name, back, depth + 1)
+            if L_in <= 0.0:
+                continue
+            cos_w = float(n_np @ w)
+            if cos_w <= 1e-6:
+                continue
+            f_r = brdf_func(n_np, w, out_dir, **brdf_kwargs) / cos_w
+            total += f_r * L_in
+        return np.pi * total / self.bounce_samples
+
     def render(self):
         bpy.context.view_layer.update()
         depsgraph = bpy.context.evaluated_depsgraph_get()
@@ -745,6 +1128,9 @@ class Renderer:
         self.image = np.zeros((self.resolution_y, self.resolution_x))
         self.hit_count = 0
         self.shadow_count = 0
+        # reset per frame so a given geometry always renders identically
+        self._bounce_rng = np.random.default_rng(self.bounce_seed)
+        k_geom = self.pixel_area / self.distance_to_observer ** 2
  
         mask = np.zeros((self.resolution_y, self.resolution_x), dtype=bool)
         for x_min, x_max, y_min, y_max in self.get_object_pixel_bboxes():
@@ -769,12 +1155,23 @@ class Renderer:
         sx, sy, sz = sun_dir_np.tolist()
         sun_dir_vec = Vector((sx, sy, sz))
  
-        es_on = self.add_earthshine and self.earthshine_direction is not None
-        es_dir_np = np.array(self.earthshine_direction, dtype=float) if es_on else None
- 
         inv_d2 = 1.0 / self.distance_to_observer ** 2
         k_sun = self.solar_constant * self.pixel_area * inv_d2
-        k_es = (self.earthshine_irradiance * self.pixel_area * inv_d2) if es_on else 0.0
+
+        # Earthshine is an EXTENDED source: every visible, sunlit Earth patch is
+        # its own directional source of irradiance L*omega. Summing them gives
+        # the correct per-pixel cos(incidence) on every facet at every attitude,
+        # which one lumped direction cannot: a facet perpendicular to the lump
+        # would collect zero while still seeing half the disc.
+        es_on = (self.add_earthshine and self.earthshine_dirs is not None
+                 and len(self.earthshine_dirs) > 0)
+        if es_on:
+            es_dirs = np.asarray(self.earthshine_dirs, dtype=float)
+            es_k = (np.asarray(self.earthshine_patch_irradiance, dtype=float)
+                    * self.pixel_area * inv_d2)
+            es_vecs = ([Vector(d.tolist()) for d in es_dirs]
+                       if self.earthshine_shadows else None)
+            es_eps = self.ortho_scale * 1e-5
  
         brdf_cache = self._brdf_cache
         image = self.image
@@ -788,7 +1185,6 @@ class Renderer:
                 continue
             self.hit_count += 1
  
-            # Plain floats: numpy on 3-vectors costs more in overhead than it saves.
             nx, ny, nz = normal.x, normal.y, normal.z
             if self.smooth_normals:
                 nx, ny, nz = self._shading_normal(obj, _face, loc, (nx, ny, nz))
@@ -818,8 +1214,29 @@ class Renderer:
             if es_on:
                 if hit_normal is None:
                     hit_normal = np.array((nx, ny, nz))
-                flux += (
-                    brdf_func(hit_normal, es_dir_np, view_dir, **brdf_kwargs) * k_es)
+                es_origin = None
+                for m in range(es_dirs.shape[0]):
+                    dmx, dmy, dmz = es_dirs[m, 0], es_dirs[m, 1], es_dirs[m, 2]
+                    if nx * dmx + ny * dmy + nz * dmz <= 0.0:
+                        continue            # this patch is behind the facet
+                    if es_vecs is not None:
+                        if es_origin is None:
+                            es_origin = Vector((loc.x + nx * es_eps,
+                                                loc.y + ny * es_eps,
+                                                loc.z + nz * es_eps))
+                        if ray_cast(depsgraph, es_origin, es_vecs[m])[0]:
+                            continue        # spacecraft occludes the Earth here
+                    flux += brdf_func(hit_normal, es_dirs[m], view_dir,
+                                      **brdf_kwargs) * es_k[m]
+
+            if self.n_bounce > 1:
+                # a SHADOWED facet has no direct term and so no hit_normal yet,
+                # and that is exactly where inter-reflection matters most
+                if hit_normal is None:
+                    hit_normal = np.array((nx, ny, nz))
+                flux += self._indirect_radiance(
+                    depsgraph, ray_cast, loc, hit_normal, obj.name,
+                    view_dir, 1) * k_geom
 
             image[ys[i], xs[i]] = flux
  
