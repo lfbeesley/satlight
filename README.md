@@ -86,12 +86,23 @@ To render it the `Renderer` reads the Sun and observer directions off the
 `Geometry`:
 
 ```python
+brdf = {
+    'solar':    ('lambertian', {'albedo': 0.08}),   # cells are dark
+    'radiator': ('lambertian', {'albedo': 0.60}),   # white thermal surfaces
+    'default':  ('lambertian', {'albedo': 0.25}),   # everything else
+}
+
 r = Renderer("your_model.obj", geometry=geom, resolution=(300, 300), brdf=brdf)
 r.initialise_scene()
 r.add_camera()
 r.update(geom)                              # before every render
 flux = float(np.sum(r.render()))            # W/m² at the observer
 ```
+
+**Materials are matched by object name.** A `brdf` key matches if it appears
+anywhere in the object's name, compared case-insensitively, so `'solar'` catches
+every `solar_*` component of your model. `'default'` catches the rest. See
+`satlight.brdf` for the full list of models and for how to write your own.
 
 A satellite is only worth rendering when it is above the horizon **and**
 sunlit, so check both `is_visible()` and `eclipse_type()` before you trust a
