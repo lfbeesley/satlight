@@ -1,14 +1,16 @@
 # satlight
 
-Physically-based light curves for resident space objects. satlight ray-traces a
-spacecraft model with real surface BRDFs and returns the flux an observer on the
-ground would actually measure, epoch by epoch.
+Physically-based light curves for satellites and debris. satlight uses Blender to ray-trace a
+spacecraft model (.obj) with representative BRDFs and returns the flux an observer on the
+ground would measure.
 
+Features:
 - Per-component BRDFs (Lambertian, Phong, Cook-Torrance, Oren-Nayar, ABg)
-- Self-shadowing and multiple scattering between components
-- Earthshine as an extended source, not a single lumped direction
+- Self-shadowing and multi bounce scattering between components
+- Earthshine as an extended source (currently constant albedo of 0.3, to be improved)
 - Orbit propagation and observer geometry via skyfield and SGP4
-- Output is radiometric: W/m² at the observer, not arbitrary units
+- Output is radiometrically accurate rendered frame: W/m²/pixel at the observer
+- Integrate over frame to give W/m² and apparent magnitude 
 
 ## Install
 
@@ -16,9 +18,8 @@ ground would actually measure, epoch by epoch.
 pip install satlight
 ```
 
-Python 3.11 only, because satlight pins `bpy==4.5.3` (Blender as a Python
-module), which is what does the ray casting. The install is large — `bpy` is
-most of it.
+Python 3.11 only, satlight uses `bpy==4.5.3` (Blender Python
+API). The install is large — `bpy` is most of it.
 
 ## Quick start
 
@@ -27,16 +28,16 @@ import numpy as np
 from satlight.geometry import ViewGeometry
 from satlight.raytracer import Renderer
 
-# a 2 m x 2 m flat plate, as a stand-in for your own .obj
+# a 2 m x 2 m flat plate, replace with your own .obj
 with open("plate.obj", "w") as f:
     f.write("o plate\nv -1 0 -1\nv 1 0 -1\nv 1 0 1\nv -1 0 1\nf 4 3 2 1\n")
 
 for phase_deg in range(0, 90, 10):
     a = np.radians(phase_deg)
     geom = ViewGeometry(
-        sun_lvlh=[np.sin(a), 0.0, np.cos(a)],   # where the Sun is
-        observer_lvlh=[0.0, 0.0, 1.0],          # where the observer is
-        distance_km=550.0,                      # slant range, KILOMETRES
+        sun_lvlh=[np.sin(a), 0.0, np.cos(a)],   # direction to Sun
+        observer_lvlh=[0.0, 0.0, 1.0],          # direction to observer
+        distance_km=550.0,                      # slant range, in kilometres
     )
     r = Renderer("plate.obj", geometry=geom, resolution=(256, 256),
                  brdf=("lambertian", {"albedo": 0.3}))
