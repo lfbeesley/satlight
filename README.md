@@ -48,9 +48,9 @@ for phase_deg in range(0, 90, 10):
     print(f"phase {phase_deg:3d} deg   flux {flux:.3e} W/m²")
 ```
 
-A flat Lambertian plate must follow the cosine law, and this does: the flux at
-80° is `cos(80°) = 0.174` times the flux at 0°. That makes the snippet a usable
-check that your install is working.
+A flat Lambertian plate must follow the cosine law, so that the flux at
+80° is `cos(80°) = 0.174` times the flux at 0°. Use this snippet to check that
+your install is correct.
 
 For an orbit rather than a fixed viewing geometry, build a
 `satlight.geometry.Geometry` from a TLE or orbital elements and pass that as
@@ -58,9 +58,9 @@ For an orbit rather than a fixed viewing geometry, build a
 
 ## Real geometry: from a TLE
 
-`ViewGeometry` above is the explicit form — three directions and a range, for
-BRDF studies and phase sweeps with no orbit behind them. For real observations
-build a `Geometry` instead, and hand that to the `Renderer`.
+`ViewGeometry` above is the explicit form using ingoing vector, outgoing vector and a range, for
+BRDF studies and phase sweeps with no orbit behind them. Currently cannot account for eclipsed 
+satellite. For real observations build a `Geometry` instead, and hand that to the `Renderer`.
 
 ```python
 from satlight.geometry import Geometry
@@ -82,8 +82,8 @@ print(geom.is_visible())         # True     False if the Earth is in the way
 print(geom.eclipse_type())       # 1.0      sunlit; 0.0 in shadow
 ```
 
-Then render it — the `Renderer` reads the Sun and observer directions off the
-`Geometry`, so you never pass vectors by hand:
+To render it the `Renderer` reads the Sun and observer directions off the
+`Geometry`:
 
 ```python
 r = Renderer("your_model.obj", geometry=geom, resolution=(300, 300), brdf=brdf)
@@ -144,9 +144,8 @@ calibration:
 m = -2.5 * np.log10(flux) - 18.915      # = m_sun + 2.5*log10(1361), m_sun = -26.75
 ```
 
-`satlight.tools.AB_mag` is a true AB magnitude and is correct only for in-band
-(500–600 nm) flux. Applying it to `render()` output reads about 2.2 mag too
-bright.
+In-band spectral magnitudes can only be calculated by changing the `solar_constant` from 1361 W/m^2
+to the in-band solar irradiance (174 W/m² for V).
 
 ## Status
 
