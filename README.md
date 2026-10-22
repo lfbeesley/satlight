@@ -83,10 +83,7 @@ pytest -m ""            # everything, including renders
 
 ## Licence
 
-GPL-3.0-or-later. This is not a free choice: satlight imports `bpy`, which is
-GPL-3.0, so any distributed version of satlight must be GPL-3.0 too. Using
-satlight to produce light curves, figures or papers carries no obligation — the
-licence only applies if you redistribute the software itself.
+GPL-3.0-or-later
 
 ## Contact
 
