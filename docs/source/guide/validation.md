@@ -111,4 +111,4 @@ pytest -m ""                            # everything
 
 The analytic gates are in `tests/test_render.py` and
 `tests/test_earthshine_extended.py`. They need Blender, so they are not in the
-default run — see {doc}`../contributing`.
+default run.

@@ -99,6 +99,5 @@ guide/validation
 
 api/index
 troubleshooting
-contributing
 changelog
 ```
