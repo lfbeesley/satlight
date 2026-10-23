@@ -43,6 +43,11 @@ the parts are at that moment, so a solar array swung out afterwards can land
 outside the image.
 ```
 
+`render()` sees a moved part even without a new `update()`, but the camera
+keeps its old frame. That is fine for small moves, such as tilting an antenna
+by a few degrees. After a large move, call `update()` again; with the same
+geometry it only re-places the camera.
+
 ## Moving individual components
 
 The OBJ importer splits the file on its `o <name>` lines, so every named
@@ -58,18 +63,35 @@ These are the same names that `brdf=` matches against (see {doc}`materials`).
 The importer also converts the file from Y-up to Z-up, so measure axes from the
 imported objects rather than reading them off the `.obj` text.
 
-## The recipe
+## Setting a part's position
 
-Store each part's imported pose once, then rebuild every part's matrix from
-it on each frame:
+Blender stores each part's position and orientation as a 4×4 matrix,
+`matrix_world`. To move a part, build a new matrix and assign it.
+
+Save every part's matrix once, straight after `initialise_scene()`:
 
 ```python
-matrix_world = body_attitude @ articulation @ rest[name]
+rest = {o.name: o.matrix_world.copy() for o in meshes}
 ```
 
-Reading right to left: the pose as imported, then the part's own motion, then
-the whole-spacecraft attitude. Because every frame starts again from `rest`,
-nothing accumulates, and an articulation of zero restores the nominal pose.
+Then, for each frame, set each part's matrix to
+
+```python
+o.matrix_world = body_attitude @ articulation @ rest[o.name]
+```
+
+where
+
+- `rest[o.name]` is the part as it was imported,
+- `articulation` is the part's own motion, such as a solar array turning on
+  its hinge, and
+- `body_attitude` rotates the whole spacecraft into the LVLH frame.
+
+Each frame starts from `rest`, so rotations don't build up from one frame to
+the next. To put a part back in its imported position, set `articulation` to
+the identity matrix, `mu.Matrix.Identity(4)`.
+
+The full set-up:
 
 ```python
 import bpy
@@ -132,8 +154,8 @@ theta = np.arctan2(sun_body @ np.cross(h, n0), sun_body @ n0)
 ```
 
 A single hinge cannot follow the Sun's component along the hinge itself, so
-the normal is off by the Sun's declination relative to the array, a few degrees
-for a GEO satellite.
+the normal is off by that angle. For a GEO satellite this is the solar
+declination, up to about 23°.
 
 ## Do not mix with `set_attitude`
 
