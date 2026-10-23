@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use satlight in your work, please cite the paper below."
+title: satlight
+url: "https://github.com/lfbeesley/satlight"
+license: GPL-3.0-or-later
+authors:
+  - family-names: Beesley
+    given-names: Lily
+preferred-citation:
+  type: conference-paper
+  title: "SatLight: A Python Package for High-Fidelity Light Curve Simulation"
+  authors:
+    - family-names: Beesley
+      given-names: Lily
+    - family-names: Whitlock
+      given-names: Phineas
+    - family-names: Blake
+      given-names: James
+    - family-names: Jones
+      given-names: Gruffudd
+    - family-names: Maric
+      given-names: Nina
+    - family-names: Alconcel
+      given-names: Leah-Nani
+  collection-title: "AMOS 2026 Technical Papers"
+  publisher:
+    name: "AMOS Conference"
+  year: 2026
+  doi: "10.64861/INPV6617"
+  url: "https://doi.org/10.64861/INPV6617"

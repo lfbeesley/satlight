@@ -156,6 +156,27 @@ m = -2.5 * np.log10(flux) - 18.915      # = m_sun + 2.5*log10(1361), m_sun = -26
 In-band spectral magnitudes can only be calculated by changing the `solar_constant` from 1361 W/m^2
 to the in-band solar irradiance (174 W/m² for V).
 
+## Citing satlight
+
+If you use satlight in your work, please cite:
+
+Beesley, L., Whitlock, P., Blake, J., Jones, G., Maric, N. and Alconcel, L.-N.
+(2026). SatLight: A Python Package for High-Fidelity Light Curve Simulation.
+*AMOS 2026 Technical Papers*. https://doi.org/10.64861/INPV6617
+
+```bibtex
+@inproceedings{Beesley_2026,
+  title     = {SatLight: A Python Package for High-Fidelity Light Curve Simulation},
+  author    = {Beesley, Lily and Whitlock, Phineas and Blake, James and
+               Jones, Gruffudd and Maric, Nina and Alconcel, Leah-Nani},
+  booktitle = {AMOS 2026 Technical Papers},
+  publisher = {AMOS Conference},
+  year      = {2026},
+  doi       = {10.64861/INPV6617},
+  url       = {https://doi.org/10.64861/INPV6617},
+}
+```
+
 ## Licence
 
 GPL-3.0-or-later
