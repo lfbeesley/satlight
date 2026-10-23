@@ -7,11 +7,8 @@ authors = [
 description = "A package to produce high fidelity RSO lightcurves"
 requires-python = ">=3.11,<3.12"
 readme = "README.md"
-# GPL-3.0 is not a free choice: satlight imports bpy at module scope, and bpy
-# (and mathutils) are GPL-3.0, which makes a distributed satlight a derivative
-# work. Any redistribution - modified or not - must stay GPL-3.0.
-# SPDX form (PEP 639); with it, the old "License ::" classifier must NOT be used.
-license = "GPL-3.0-or-later"
+
+license = "GPL-3.0-or-later" #Same as blender
 license-files = ["LICENSE"]
 keywords = ["satellite", "lightcurve", "photometry", "BRDF", "ray tracing",
             "space situational awareness", "dark and quiet skies"]
@@ -23,12 +20,7 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Astronomy",
   "Topic :: Scientific/Engineering :: Physics",
 ]
-# Only what satlight/ actually imports. trimesh, tqdm, xarray and netCDF4 were
-# declared but never imported - they were left over from the GOME/LER earthshine
-# path that loadGOME.py was going to be - and netCDF4 drags in binary HDF5
-# wheels for nothing. plotly is only used by Renderer.preview_lvlh_views(),
-# which imports it inside the method so that `import satlight` stays fast; it is
-# still installed for everyone.
+
 dependencies = [
   "numpy",
   "astropy",
@@ -50,17 +42,13 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-# The wheel is the five modules and nothing else: no data files, no models.
-# Example meshes live in the repo's models/ directory.
+
 packages = ["satlight"]
 include-package-data = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Default run is the fast offline tier. The heavier tiers are opt-in:
-#   pytest -m needs_ephemeris      skyfield + de421.bsp (downloads on first use)
-#   pytest -m "slow or needs_bpy"  Blender renders
-#   pytest -m ""                   everything
+
 addopts = "-m 'not needs_ephemeris and not needs_bpy and not slow'"
 markers = [
   "slow: takes seconds or more",
