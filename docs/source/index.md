@@ -2,7 +2,7 @@
 
 **Physically-based light curves for resident space objects.**
 
-satlight renders a spacecraft the way a telescope sees it. You give it an
+satlight renders a spacecraft from the perspective of an observer. You give it an
 orbit, an observing site, a mesh and a set of surface reflectance models; it
 ray-traces the illuminated geometry and returns the irradiance arriving at the
 observer, in W/m². Nothing in the chain is fitted or empirical — the output is
@@ -10,7 +10,7 @@ a radiometric prediction, which is what makes it useful for asking *why* a
 light curve looks the way it does.
 
 ```{code-block} python
-:caption: The whole package, in a few lines
+:caption: Example block
 
 from satlight import Geometry, Renderer
 import numpy as np, urllib.request
@@ -68,6 +68,8 @@ Hand `Geometry` into the `Renderer` to derive the radiance conditions.
   filtered measurement.
 - **It is not an attitude propagator.** You supply the orientation per epoch;
   satlight will not tumble the body for you.
+- **Not tested for space-based observers**  -- I'm sure it would work... but I haven't
+  tried to configure this scenario.
 
 ```{toctree}
 :hidden:
