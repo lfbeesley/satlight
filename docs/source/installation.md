@@ -13,7 +13,7 @@ works:
 pip install "satlight==0.1.0a3"
 ```
 
-## Python 3.11, and only 3.11
+## Python 3.11
 
 ```{important}
 satlight requires `>=3.11,<3.12`. This is not conservatism — it is `bpy`.
@@ -34,8 +34,8 @@ pip install --pre satlight
 
 ## The download is large
 
-Expect several hundred megabytes, almost all of it `bpy`. That is a whole
-Blender, including its renderer. The other dependencies are small:
+Several hundred megabytes due to `bpy`. That is a whole Blender, including its renderer. 
+The other dependencies are small:
 
 | Package | Why |
 |---|---|
@@ -43,14 +43,8 @@ Blender, including its renderer. The other dependencies are small:
 | `numpy` | everything numerical |
 | `skyfield`, `sgp4` | orbit propagation and observer geometry |
 | `astropy` | physical constants and units |
-| `hide_warnings` | silences Blender's mesh-import chatter |
+| `hide_warnings` | silences Blender's mesh-import chatter - it get's angry when you don't want to use an .obj's associated .mtl's|
 
-```{note}
-Earlier versions declared `trimesh`, `tqdm`, `xarray` and `netCDF4`. None were
-ever imported — they were left over from an earthshine path that was never
-finished, and `netCDF4` alone dragged in binary HDF5 wheels for nothing. They
-are gone as of `0.1.0a3`, which removes about 177 MB from a fresh install.
-```
 
 ### Optional extras
 
