@@ -69,6 +69,28 @@ Hand `Geometry` into the `Renderer` to derive the radiance conditions.
 - **Not tested for space-based observers**  -- I'm sure it would work... but I haven't
   tried to configure this scenario.
 
+## Citing satlight
+
+If you use satlight in your work, please cite:
+
+Beesley, L., Whitlock, P., Blake, J., Jones, G., Maric, N. and Alconcel, L.-N.
+(2026). SatLight: A Python Package for High-Fidelity Light Curve Simulation.
+*AMOS 2026 Technical Papers*.
+[doi:10.64861/INPV6617](https://doi.org/10.64861/INPV6617)
+
+```bibtex
+@inproceedings{Beesley_2026,
+  title     = {SatLight: A Python Package for High-Fidelity Light Curve Simulation},
+  author    = {Beesley, Lily and Whitlock, Phineas and Blake, James and
+               Jones, Gruffudd and Maric, Nina and Alconcel, Leah-Nani},
+  booktitle = {AMOS 2026 Technical Papers},
+  publisher = {AMOS Conference},
+  year      = {2026},
+  doi       = {10.64861/INPV6617},
+  url       = {https://doi.org/10.64861/INPV6617},
+}
+```
+
 ```{toctree}
 :hidden:
 :caption: Getting started

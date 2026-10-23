@@ -1,5 +1,8 @@
 # Validation
 
+See [Beesley et al. (2026)](https://doi.org/10.64861/INPV6617) for validation
+and verification examples.
+
 The test suite checks the renderer against shapes with known analytic
 answers.
 
