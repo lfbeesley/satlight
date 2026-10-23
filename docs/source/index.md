@@ -29,44 +29,7 @@ flux = float(np.sum(r.render()))                        # W/m²
 print(-2.5 * np.log10(flux) - 18.915)                   # apparent magnitude
 ```
 
-## Start here
-
-::::{grid} 2
-:gutter: 3
-
-:::{grid-item-card} {octicon}`download` Installation
-:link: installation
-:link-type: doc
-
-Python 3.11, and why that is not negotiable.
-:::
-
-:::{grid-item-card} {octicon}`rocket` Tutorial
-:link: tutorial
-:link-type: doc
-
-One real pass, end to end: observer → satellite → time → materials →
-attitude → propagate.
-:::
-
-:::{grid-item-card} {octicon}`book` User guide
-:link: guide/index
-:link-type: doc
-
-How each piece works, and the physics it assumes.
-:::
-
-:::{grid-item-card} {octicon}`code` API reference
-:link: api/index
-:link-type: doc
-
-Every public class and function, from the docstrings.
-:::
-::::
-
-## How it fits together
-
-Two halves that meet at three vectors and a range.
+## How it works
 
 ```text
   TLE / Keplerian elements ─┐
