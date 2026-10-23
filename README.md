@@ -156,17 +156,6 @@ m = -2.5 * np.log10(flux) - 18.915      # = m_sun + 2.5*log10(1361), m_sun = -26
 In-band spectral magnitudes can only be calculated by changing the `solar_constant` from 1361 W/m^2
 to the in-band solar irradiance (174 W/m² for V).
 
-## Status
-
-Alpha. The API still moves between releases. The forward model is gated against
-closed-form truth in `tests/` — a Lambertian plate to 0.08% and a Lambertian
-sphere's analytic phase function to 0.1–0.25% across phase angles 0–120°.
-
-```bash
-pytest                  # fast tier, no Blender, seconds
-pytest -m ""            # everything, including renders
-```
-
 ## Licence
 
 GPL-3.0-or-later
