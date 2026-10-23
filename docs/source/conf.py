@@ -90,7 +90,7 @@ intersphinx_mapping = {
 # -- HTML output --------------------------------------------------------------
 
 html_theme = "furo"
-html_static_path = ["_static"]
+html_static_path = []          # no custom CSS/JS; add "_static" here if some is ever needed
 html_title = f"satlight {release}"
 html_theme_options = {
     "source_repository": "https://github.com/lfbeesley/satlight/",
