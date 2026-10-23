@@ -7,37 +7,56 @@ authors = [
 description = "A package to produce high fidelity RSO lightcurves"
 requires-python = ">=3.11,<3.12"
 readme = "README.md"
+# GPL-3.0 is not a free choice: satlight imports bpy at module scope, and bpy
+# (and mathutils) are GPL-3.0, which makes a distributed satlight a derivative
+# work. Any redistribution - modified or not - must stay GPL-3.0.
+# SPDX form (PEP 639); with it, the old "License ::" classifier must NOT be used.
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["satellite", "lightcurve", "photometry", "BRDF", "ray tracing",
+            "space situational awareness", "dark and quiet skies"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+# Only what satlight/ actually imports. trimesh, tqdm, xarray and netCDF4 were
+# declared but never imported - they were left over from the GOME/LER earthshine
+# path that loadGOME.py was going to be - and netCDF4 drags in binary HDF5
+# wheels for nothing. matplotlib and plotly are visualisation only; see
+# [project.optional-dependencies] below.
 dependencies = [
   "numpy",
-  "matplotlib",
   "astropy",
   "skyfield",
   "sgp4",
-  "trimesh",
-  "tqdm",
-  "plotly",
-  "xarray",
-  "netCDF4",
   "bpy==4.5.3",
   "mathutils==3.3.0",
   "hide_warnings",
 ]
 
+[project.optional-dependencies]
+# Renderer.preview_lvlh_views() only. Imported lazily inside that method, so the
+# core package neither needs nor loads them.
+preview = ["plotly", "matplotlib"]
+
+[project.urls]
+Homepage = "https://github.com/lfbeesley/satlight"
+Source = "https://github.com/lfbeesley/satlight"
+Issues = "https://github.com/lfbeesley/satlight/issues"
+
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["satlight*"]
-
-[tool.setuptools.package-data]
-satlight = [
-  "data/ceres_albedo_monthly.npy",
-]
-# data/ler555nm/*.dat (14 files, 2.8 MB) is kept in the repo but
-# not shipped: nothing in the package reads it yet. Adding it back here when the
-# GOME/LER earthshine path has been implemented.
+[tool.setuptools]
+# The wheel is the five modules and nothing else: no data files, no models.
+# Example meshes live in the repo's models/ directory.
+packages = ["satlight"]
+include-package-data = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

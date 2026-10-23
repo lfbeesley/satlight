@@ -1,19 +1,27 @@
-# .readthedocs.yaml
-# Read the Docs configuration file
-# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+# Read the Docs configuration
+# https://docs.readthedocs.io/en/stable/config-file/v2.html
 
 version: 2
 
 build:
-  os: ubuntu-22.04
+  os: ubuntu-24.04
   tools:
-    python: "3.11"
+    python: "3.11"          # satlight is 3.11-only, because bpy==4.5.3 is
 
 sphinx:
   configuration: docs/source/conf.py
+  # Treat a warning as a build failure: a broken cross-reference or an orphan
+  # page is a docs bug, and silently publishing it is worse than a red build.
+  fail_on_warning: true
+
+formats:
+  - pdf
+  - htmlzip
 
 python:
   install:
     - requirements: docs/requirements.txt
-    - method: pip
-      path: .
+  # NOTE: there is deliberately no `- method: pip / path: .` step here.
+  # Installing satlight would resolve bpy==4.5.3 and blow the build's time and
+  # disk budget. conf.py adds the repo root to sys.path and mocks bpy, which is
+  # enough for autodoc to read every docstring in the package.

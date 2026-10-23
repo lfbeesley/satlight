@@ -1,4 +1,77 @@
+"""Bidirectional reflectance distribution functions.
 
+HOW THE RENDERER CALLS THESE
+----------------------------
+`Renderer.render()` calls a BRDF once per lit pixel per source::
+
+    value = brdf_func(normal, light_dir, view_dir, **kwargs)
+
+with::
+
+    normal     unit shading normal at the hit point
+    light_dir  unit vector pointing TO the source (Sun, or an Earth patch)
+    view_dir   unit vector pointing TO the observer
+    kwargs     whatever the material spec carried
+
+all three in the render frame (LVLH, with Z zenith), and the return a single
+float.
+
+THE ONE CONVENTION THAT MATTERS
+-------------------------------
+**The returned value is f_r * cos(theta_i), NOT f_r.** The incident cosine is
+folded into the kernel, so every function here ends with a `* n_dot_l`. Write
+a custom BRDF without it and the body comes out uniformly lit however the Sun
+strikes it - a wrong answer that still looks like a spacecraft.
+
+A BRDF must also return exactly `0.0` when `dot(normal, light_dir) <= 0`: the
+renderer does not clamp for you, and a negative value would subtract light.
+
+Units are sr^-1, so kernel * irradiance = radiance toward the observer. The
+renderer multiplies by `solar_constant * pixel_area / range^2` for the Sun and
+by the per-patch irradiance for earthshine.
+
+HOW OFTEN
+---------
+
+::
+
+    direct Sun        1 call per lit pixel
+    earthshine        1 call per lit Earth patch per lit pixel
+                      (88 patches at LEO with n_rings=4)
+    n_bounce > 1      bounce_samples extra calls per pixel per extra bounce
+
+A BRDF is on the hot path: a 400 px frame makes ~9000 calls for sunlight
+alone. Keep it scalar and cheap - numpy's per-call overhead on 3-vectors costs
+more than the arithmetic.
+
+SPECIFYING A MATERIAL
+---------------------
+`Renderer(brdf=...)` accepts::
+
+    'lambertian'                     a name from BRDF_REGISTRY
+    my_func                          any callable with the signature above
+    ('lambertian', {'albedo': 0.3})  a (spec, kwargs) pair
+    {'solar': ..., 'default': ...}   per-object, keyed by NAME SUBSTRING
+
+For the dict form a key matches when it appears anywhere in the object's name,
+compared case-insensitively, so 'solar' catches `solar_left_front`. 'default'
+catches anything unmatched.
+
+WRITING ONE
+-----------
+
+::
+
+    def my_brdf(normal, light_dir, view_dir, albedo=0.3):
+        n_dot_l = float(np.dot(normal, light_dir))
+        if n_dot_l <= 0.0:
+            return 0.0                    # never negative, never unclamped
+        return albedo / np.pi * n_dot_l   # f_r * cos(theta_i)
+
+    Renderer(obj, geometry=geom, brdf=(my_brdf, {'albedo': 0.3}))
+
+That reproduces `lambertian` exactly.
+"""
 import numpy as np
  
 _EPS = 1e-6
@@ -118,15 +191,15 @@ def cook_torrance(normal, light_dir, view_dir, albedo=0.3, roughness=0.5, metall
  
     References
     ----------
-    Torrance, K. E. and Sparrow, E. M. (1967), JOSA 57(9), 1105-1114.
-    Cook, R. L. and Torrance, K. E. (1982), ACM TOG 1(1), 7-24.
-    Trowbridge, T. S. and Reitz, K. P. (1975), JOSA 65(5), 531-536.
-        (the D term, later renamed GGX)
-    Walter, B. et al. (2007), EGSR '07, 195-206.
-    Smith, B. G. (1967), IEEE Trans. Antennas Propag. 15(5), 668-671.
-        (the G term)
-    Schlick, C. (1994), Computer Graphics Forum 13(3), 233-246.
-        (the F approximation)
+    - Torrance, K. E. and Sparrow, E. M. (1967), JOSA 57(9), 1105-1114.
+    - Cook, R. L. and Torrance, K. E. (1982), ACM TOG 1(1), 7-24.
+    - Trowbridge, T. S. and Reitz, K. P. (1975), JOSA 65(5), 531-536
+      (the D term, later renamed GGX).
+    - Walter, B. et al. (2007), EGSR '07, 195-206.
+    - Smith, B. G. (1967), IEEE Trans. Antennas Propag. 15(5), 668-671
+      (the G term).
+    - Schlick, C. (1994), Computer Graphics Forum 13(3), 233-246
+      (the F approximation).
     """
     n_dot_l = np.dot(normal, light_dir)
     n_dot_v = np.dot(normal, view_dir)
@@ -227,9 +300,9 @@ def ashikhmin_shirley(normal, light_dir, view_dir, tangent=None,
  
     References
     ----------
-    Ashikhmin, M. and Shirley, P. (2000), J. Graphics Tools 5(2), 25-32.
-    Wetterer, C. J. et al. (2014), J. Guid. Control Dyn. 37(1), 185-196.
-        (adoption for space object modelling)
+    - Ashikhmin, M. and Shirley, P. (2000), J. Graphics Tools 5(2), 25-32.
+    - Wetterer, C. J. et al. (2014), J. Guid. Control Dyn. 37(1), 185-196
+      (adoption for space object modelling).
     """
     n = np.asarray(normal, float)
     n_dot_l = np.dot(n, light_dir)
@@ -270,7 +343,7 @@ def ashikhmin_shirley(normal, light_dir, view_dir, tangent=None,
 def abg(normal, light_dir, view_dir, A=1e-3, B=1e-4, g=2.0):
     """ABg empirical scatter model (Zemax convention).
  
-    f_r = A / (B + |beta - beta_0|^g), with beta the outgoing direction
+    ``f_r = A / (B + |beta - beta_0|^g)``, with beta the outgoing direction
     projected into the surface plane. Specular peak A/B; power-law tail of
     slope -g beyond the knee at B^(1/g). Fits a sharp spike sitting on a broad
     shoulder, which a single microfacet lobe cannot.

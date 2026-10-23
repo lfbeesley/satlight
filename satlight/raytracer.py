@@ -1,16 +1,12 @@
-from importlib.resources import files
 import bpy
 import numpy as np
 from mathutils import Vector
-import matplotlib.pyplot as plt
 from hide_warnings import hide_warnings
-import plotly.graph_objects as go
-import plotly.io as pio
-pio.renderers.default = 'browser'
 from types import SimpleNamespace
 from satlight.brdf import (
     lambertian, phong, blinn_phong,
     cook_torrance, oren_nayar, satellite)
+from satlight.geometry import R_EARTH_MEAN_KM
 
 BRDF_REGISTRY = {
     'lambertian':   lambertian,
@@ -64,8 +60,11 @@ class Renderer:
                  earthshine_n_rings=4, earthshine_shadows=None,
                  n_bounce=1, bounce_samples=8, bounce_seed=0,
                  auto_ortho_scale=True, ortho_margin=1.06,
+                 apply_observability=True,
                  **legacy):
         '''
+        Parameters
+        ----------
         geometry : Geometry or ViewGeometry
             REQUIRED. A `Geometry` for orbit-driven work, a `ViewGeometry` for
             BRDF studies, phase sweeps and attitude scans. Only
@@ -82,7 +81,7 @@ class Renderer:
             disk, does not change the total.
         add_earthshine : add reflected earthshine, as an extended source.
         earth_albedo : uniform Bond albedo per Earth patch. 0.3 is the global
-            mean; None restores the per-patch CERES monthly map.
+            mean.
         earthshine_n_rings : Earth-cap resolution, equal SOLID ANGLE per patch.
             4 gives 88 patches and already matches a 960-patch grid to 0.001
             mag. Cost is linear in the patch count.
@@ -94,6 +93,13 @@ class Renderer:
             goes as 1/sqrt(N); 8 is enough unless the indirect term is a large
             fraction of the total.
         ortho_margin : safety factor on the fitted frame; 1.06 = a 6% border.
+        apply_observability : scale the rendered flux by the geometry's
+            `observable_fraction()` - eclipse_type() * is_visible(). Without it
+            a satellite that has SET still renders at full brightness, because
+            the renderer sees only three direction vectors and a range and none
+            of them knows where the Earth is. A ViewGeometry cannot answer this,
+            so for one the factor is 1.0 and the caller keeps responsibility.
+            Default True.
 
         n_bounce
             Scattering events per path. 1 (default) is single-bounce and is
@@ -158,6 +164,44 @@ class Renderer:
         self.bounce_samples = int(bounce_samples)
         self.bounce_seed = int(bounce_seed)
         self._bounce_rng = np.random.default_rng(self.bounce_seed)
+
+        # add_earthshine=True used to set a flag and nothing else: the term was
+        # silently dropped unless the caller also remembered to call
+        # compute_earthshine(). It is derived from the geometry, so the geometry
+        # is the only thing it needs - compute it here and again on every
+        # update(), which also stops it going stale as the satellite moves.
+        if self.add_earthshine:
+            self.compute_earthshine(geometry)
+
+        # --- observability: is the satellite lit, and can the observer see it?
+        self.apply_observability = bool(apply_observability)
+        self.observable_fraction = (
+            self._observability_from_geometry(geometry)
+            if self.apply_observability else 1.0)
+
+    @staticmethod
+    def _observability_from_geometry(geometry):
+        """`eclipse_type() * is_visible()`, or 1.0 when the geometry cannot say.
+
+        Two independent things must be true for a satellite to be seen: the Sun
+        must reach it (eclipse_type) and the Earth must not be in the way
+        (is_visible). A satellite can be in full sunlight and still completely
+        unobservable, so neither check substitutes for the other.
+
+        A ViewGeometry is three unit vectors and a range. It holds no positions,
+        so it cannot know where the Earth is and cannot answer this. That is not
+        an error - it is the point of the explicit viewing geometry - so the
+        factor is 1.0 and the caller stays responsible for masking.
+        """
+        fn = getattr(geometry, 'observable_fraction', None)
+        if fn is None:
+            return 1.0
+        val = np.asarray(fn(), dtype=float)
+        if val.size != 1:
+            raise ValueError(
+                f'observable_fraction() returned {val.size} values; the '
+                f'renderer draws one epoch at a time.')
+        return float(val.reshape(-1)[0])
 
     @staticmethod
     def _frame_from_geometry(geometry):
@@ -327,6 +371,35 @@ class Renderer:
                                        + obs * self._safe_standoff(hz))
         bpy.context.view_layer.update()
 
+    def set_attitude(self, euler_xyz=(0.0, 0.0, 0.0), order='XYZ'):
+        """Orient the whole spacecraft in the LVLH frame.
+
+        Angles in RADIANS about the LVLH axes - X along-track, Y orbit normal,
+        Z zenith - so (0, 0, 0) is the model as imported.
+
+        The rotation is always applied to the IMPORTED pose, never to the
+        current one, so calling this twice does not compound: the second call
+        replaces the first. That makes it safe to call once per frame in a
+        light-curve loop.
+
+        Call it BEFORE update(), so the camera and the auto-fitted frame are
+        placed around the new orientation.
+        """
+        import mathutils as mu
+
+        if not hasattr(self, '_rest_matrices'):      # the as-imported pose
+            self._rest_matrices = {
+                o.name: o.matrix_world.copy()
+                for o in bpy.context.scene.objects if o.type == 'MESH'}
+        R = mu.Euler(tuple(float(a) for a in euler_xyz), order).to_matrix().to_4x4()
+        for o in bpy.context.scene.objects:
+            if o.type == 'MESH' and o.name in self._rest_matrices:
+                o.matrix_world = R @ self._rest_matrices[o.name]
+        bpy.context.view_layer.update()
+        self._smooth_cache = {}        # shading normals are cached per pose
+        self._matrix_cache = {}
+        return self
+
     def _assembly_center(self):
         """World bbox centre of the current geometry, whatever attitude or
         articulation the user has applied. The camera targets this, so the
@@ -380,29 +453,30 @@ class Renderer:
             Euler-XYZ body attitude to preview. None shows the raw imported orientation.
         """
         import math
+        import mathutils as mu
+        # Plotly is imported HERE, not at module scope: it is needed only by this
+        # preview, and setting pio.renderers at import time silently reconfigured
+        # plotly for the whole process - anyone plotting in a notebook found
+        # their figures opening in a browser instead of inline.
+        import plotly.graph_objects as go
+        import plotly.io as pio
+        pio.renderers.default = 'browser'
 
-        try:
-            import mathutils as mu
-            if body_rotation is None:
-                rot_np = np.eye(3)
-            elif isinstance(body_rotation, (tuple, list)):
-                rot_np = np.array(mu.Euler(body_rotation, 'XYZ').to_matrix())
-            elif hasattr(body_rotation, 'to_matrix'):
-                rot_np = np.array(body_rotation.to_matrix())
-            else:
-                rot_np = np.array(body_rotation)
-        except ImportError:
-            if body_rotation is None:
-                rot_np = np.eye(3)
-            else:
-                from scipy.spatial.transform import Rotation
-                rot_np = Rotation.from_euler('xyz', body_rotation).as_matrix()
+        # mathutils is imported at module scope (line 4), so it is always
+        # present here; the old scipy fallback for a missing mathutils could
+        # never run.
+        if body_rotation is None:
+            rot_np = np.eye(3)
+        elif isinstance(body_rotation, (tuple, list)):
+            rot_np = np.array(mu.Euler(body_rotation, 'XYZ').to_matrix())
+        elif hasattr(body_rotation, 'to_matrix'):
+            rot_np = np.array(body_rotation.to_matrix())
+        else:
+            rot_np = np.array(body_rotation)
 
-        # Blender's OBJ importer swaps Y and Z. Apply same correction to trimesh
-        blender_correction = np.eye(3)
-
-        # Full transform: correct axes first, then apply body rotation
-        full_rot = rot_np @ blender_correction
+        # Vertices are read straight out of Blender below, already in world
+        # space, so no axis correction is needed here - only the body rotation.
+        full_rot = rot_np
 
         depsgraph = bpy.context.evaluated_depsgraph_get()
         geometries = {}
@@ -455,7 +529,7 @@ class Renderer:
                 showscale=False, hovertext=label, hoverinfo='text',
             ))
 
-        # Mesh — rotated by full_rot (body rotation + blender axis correction)
+        # Mesh - rotated by the body rotation
         for name, mesh in geometries.items():
             verts = (full_rot @ (mesh.vertices - centroid).T).T
             fig.add_trace(go.Mesh3d(
@@ -739,7 +813,7 @@ class Renderer:
         if key in cache:
             return cache[key]
 
-        R_EARTH = 6371.0
+        R_EARTH = R_EARTH_MEAN_KM      # single-sourced; see satlight.geometry
         r_sat = R_EARTH + float(altitude_km)
         if r_sat <= R_EARTH:
             raise ValueError(
@@ -805,7 +879,7 @@ class Renderer:
             if r.ndim > 1:
                 raise ValueError(
                     f'compute_earthshine needs a single epoch, got {r.shape[-1]}.')
-            return float(np.linalg.norm(r)) - 6371.0
+            return float(np.linalg.norm(r)) - R_EARTH_MEAN_KM
         raise TypeError(
             'geometry carries no altitude: a Geometry supplies it through '
             'positions["satellite"], a ViewGeometry through altitude_km=.')
@@ -845,7 +919,7 @@ class Renderer:
         for backwards compatibility also `earthshine_irradiance` (the total on a
         plate facing the Earth) and `earthshine_direction` (flux-weighted mean).
         """
-        R_EARTH = 6371.0
+        R_EARTH = R_EARTH_MEAN_KM      # single-sourced; see satlight.geometry
         # `compute_earthshine` is usable on a Renderer that has no Blender scene
         # (it needs only a radius and a Sun direction), so read the two settings
         # it depends on defensively rather than requiring a full __init__.
@@ -878,17 +952,10 @@ class Renderer:
         norms = self._align_to_nadir(norms, nadir)
 
         rho = self.earth_albedo if albedo is None else albedo
-        if rho is not None:
-            albedos = np.full(norms.shape[0], float(rho))
-        else:
-            # Per-patch CERES map. NOTE lat/lon come from the patch normal with
-            # no GMST correction, so the continents sit at an arbitrary
-            # longitude -- prefer the uniform albedo until that is fixed.
-            grid = self._load_ceres_albedo()
-            lat = np.degrees(np.arcsin(np.clip(norms[:, 2], -1.0, 1.0)))
-            lon = np.degrees(np.arctan2(norms[:, 1], norms[:, 0]))
-            albedos = grid[np.clip(np.floor(90 - lat).astype(int), 0, 179),
-                           np.clip(np.floor(lon + 180).astype(int), 0, 359)]
+        if rho is None:
+            raise ValueError('earth_albedo must be a number; the CERES map has '
+                             'been removed.')
+        albedos = np.full(norms.shape[0], float(rho))
 
         # Lambertian Earth; patches in darkness contribute nothing.
         cos_sun = np.clip(norms @ sun, 0.0, None)
@@ -915,13 +982,6 @@ class Renderer:
                   f'{self.earthshine_irradiance:.4f} W/m^2 on a nadir plate '
                   f'(mean direction {self.earthshine_direction.round(3)})')
 
-
-    def _load_ceres_albedo(self):
-        """Load and cache the CERES monthly albedo grid (lat x lon)."""
-        if not hasattr(self, '_albedo_grid') or self._albedo_grid is None:
-            path = files("satlight.data").joinpath("ceres_albedo_monthly.npy")
-            self._albedo_grid = np.load(path)
-        return self._albedo_grid 
 
     def _resolve(self, spec):
         """Turn a brdf_spec (str / callable / tuple) into (function, kwargs)."""
@@ -1003,6 +1063,13 @@ class Renderer:
         self.sun_direction = mu.Vector(np.asarray(sun).tolist())
         self.observer_direction = mu.Vector(np.asarray(obs).tolist())
         self.distance_to_observer = dist_m
+        # Earthshine depends on the satellite's altitude and on where the Sun is
+        # relative to nadir, so it is a per-frame quantity. Recomputing it here
+        # costs ~0.04 ms against a ~30-90 ms frame.
+        if self.add_earthshine:
+            self.compute_earthshine(geometry)
+        if self.apply_observability:
+            self.observable_fraction = self._observability_from_geometry(geometry)
         self._place_camera(self.observer_direction)
 
     # ------------------------------------------------------------------
@@ -1113,6 +1180,23 @@ class Renderer:
         return np.pi * total / self.bounce_samples
 
     def render(self):
+        # A configuration error, so raise before touching the scene.
+        if self.add_earthshine and self.earthshine_dirs is None:
+            raise RuntimeError(
+                'add_earthshine is True but no earthshine has been computed. '
+                'The constructor and update() do this automatically from the '
+                'geometry, so this means add_earthshine was set directly on an '
+                'existing Renderer. Call compute_earthshine(geometry) once, or '
+                'call update(geometry) again.')
+        # Eclipsed or occulted: the answer is zero everywhere, so do not spend
+        # a frame's ray casts discovering that. For a LEO time series this skips
+        # most epochs outright.
+        if self.apply_observability and self.observable_fraction == 0.0:
+            self.image = np.zeros((self.resolution_y, self.resolution_x))
+            self.hit_count = 0
+            self.shadow_count = 0
+            return self.image
+
         bpy.context.view_layer.update()
         depsgraph = bpy.context.evaluated_depsgraph_get()
         ray_cast = bpy.context.scene.ray_cast
@@ -1163,6 +1247,8 @@ class Renderer:
         # the correct per-pixel cos(incidence) on every facet at every attitude,
         # which one lumped direction cannot: a facet perpendicular to the lump
         # would collect zero while still seeing half the disc.
+        # Note `len(...) == 0` is NOT an error: a fully dark or fully occulted
+        # Earth legitimately contributes no lit patches.
         es_on = (self.add_earthshine and self.earthshine_dirs is not None
                  and len(self.earthshine_dirs) > 0)
         if es_on:
@@ -1239,7 +1325,11 @@ class Renderer:
                     view_dir, 1) * k_geom
 
             image[ys[i], xs[i]] = flux
- 
+
+        # Partial illumination (penumbra) scales the whole frame linearly.
+        if self.apply_observability and self.observable_fraction != 1.0:
+            self.image *= self.observable_fraction
+
         self._check_frame_edges()
         return self.image
 

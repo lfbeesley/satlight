@@ -14,6 +14,12 @@ load = Loader(_data_dir)
 # Constants
 R_EARTH_KM = R_earth.to(u.km).value
 # WGS84. The 21 km equatorial-polar difference matters for occultation tests.
+# The MEAN radius, for problems that only need the Earth's angular size (the
+# earthshine cap). A sphere is adequate there: the 21 km equatorial-polar
+# difference changes the subtended solid angle by 0.02%. It is NOT adequate for
+# line_of_sight, which grazes the surface - see that method.
+R_EARTH_MEAN_KM = 6371.0
+
 R_EARTH_EQ_KM = 6378.137
 R_EARTH_POLAR_KM = 6378.137 * (1.0 - 1.0 / 298.257223563)
 R_SUN_KM =  R_sun.to(u.km).value
@@ -95,23 +101,42 @@ class Geometry():
         return self.observer
     
     def set_time(self, *time_utc):
-        """Set observation time in UTC.
+        """Set the observation time, in UTC.
 
-        For SINGLE time calculation:
-        ---------------------------
-        geom.set_time(2025, 5, 4, 0, 44, 38)           # Individual arguments
-        geom.set_time((2025, 5, 4, 0, 44, 38))         # Tuple format
-        
-        For MULTIPLE time calculations:
-        ------------------------------
-        # Use ranges or arrays for any time component:
-        geom.set_time(2025, 5, 4, 0, 44, range(0, 60))           # 60 seconds
-        geom.set_time(2025, 5, 4, 0, range(44, 46), 0)           # 2 minutes
+        SINGLE epoch - all three forms are equivalent:
+
+            geom.set_time(2025, 5, 4, 0, 44, 38)        # separate arguments
+            geom.set_time((2025, 5, 4, 0, 44, 38))      # one tuple
+            geom.set_time(datetime(2025, 5, 4, 0, 44, 38))   # a datetime
+
+        MANY epochs - put a range or array in any one component:
+
+            geom.set_time(2025, 5, 4, 0, 44, range(0, 60))     # 60 seconds
+            geom.set_time(2025, 5, 4, 0, range(44, 46), 0)     # 2 minutes
+
+        THE TUPLE FORM USED TO BE A TRAP. `ts.utc((2025, 5, 4, 0, 44, 38))`
+        hands skyfield ONE sequence, which it reads as an array of YEARS -
+        2025, then 5, then 4 - giving six epochs including year 0, or
+        EphemerisRangeError. The docstring advertised the form regardless, so
+        it is unpacked here rather than removed.
+
+        To pass a genuine array of years, use a numpy array
+        (`set_time(np.array([2024, 2025]))`); only `tuple` and `list` are
+        unpacked, so arrays reach skyfield untouched.
 
         See https://rhodesmill.org/skyfield/time.html for other formats.
         """
+        if len(time_utc) == 1:
+            only = time_utc[0]
+            if isinstance(only, datetime.datetime):
+                if only.tzinfo is None:          # naive means UTC here
+                    only = only.replace(tzinfo=datetime.timezone.utc)
+                time_utc = (only,)
+            elif (isinstance(only, (tuple, list)) and 2 <= len(only) <= 7
+                  and all(np.isscalar(v) for v in only)):
+                time_utc = tuple(only)           # the documented tuple form
 
-        self.time = self.ts.utc(*time_utc)  
+        self.time = self.ts.utc(*time_utc)
         self._auto_calculate()
     
     def next_visibility(self, t0_utc, N=24, i=30.0):
@@ -406,6 +431,11 @@ class Geometry():
                                         argp_deg, nu_deg, epoch=None):
         if epoch is None:
             epoch = datetime.datetime.now(datetime.timezone.utc)
+        elif epoch.tzinfo is None:
+            # A naive datetime used to raise "can't subtract offset-naive and
+            # offset-aware datetimes" from the SGP4 epoch arithmetic below.
+            # Every time in this class is UTC, so read it as UTC.
+            epoch = epoch.replace(tzinfo=datetime.timezone.utc)
 
         # True anomaly -> mean anomaly
         nu = np.radians(nu_deg)

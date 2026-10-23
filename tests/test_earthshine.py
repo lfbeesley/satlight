@@ -208,3 +208,73 @@ class TestGeometryDrivenConstruction:
         with pytest.raises(TypeError, match='geometry='):
             renderer.update()
 
+
+
+# ------------------------------------------------- add_earthshine wiring
+class TestAddEarthshineIsNotSilent:
+    """`add_earthshine=True` used to set a flag and nothing else.
+
+    The term was dropped unless the caller also remembered to call
+    compute_earthshine() by hand, so a run that asked for earthshine quietly
+    produced a render without it - and every magnitude from it was wrong with
+    nothing to show for it. These pin the wiring shut.
+    """
+
+    @staticmethod
+    def _geom(alt_km=550.0, sun=(0.3, 0.0, 0.95)):
+        from satlight.geometry import ViewGeometry
+        return ViewGeometry(np.array(sun, dtype=float),
+                            np.array([0.0, 0.0, 1.0]),
+                            distance_km=alt_km, altitude_km=alt_km)
+
+    def _renderer(self, tmp_path, scene=False, **kw):
+        from satlight.raytracer import Renderer
+        obj = tmp_path / 'plate.obj'
+        obj.write_text('o plate\nv -1 0 -1\nv 1 0 -1\nv 1 0 1\nv -1 0 1\nf 1 2 3 4\n')
+        r = Renderer(str(obj), geometry=self._geom(), **kw)
+        if scene:                      # only the tests that call update/render
+            r.initialise_scene(); r.add_camera()
+        return r
+
+    def test_constructor_populates_earthshine(self, tmp_path):
+        """Asking for earthshine must be enough; no second call required."""
+        r = self._renderer(tmp_path, add_earthshine=True)
+        assert r.earthshine_dirs is not None
+        assert len(r.earthshine_dirs) > 0
+        assert r.earthshine_patch_irradiance.shape == (len(r.earthshine_dirs),)
+
+    def test_not_computed_when_not_asked_for(self, tmp_path):
+        """The converse: no earthshine work when add_earthshine is False."""
+        r = self._renderer(tmp_path, add_earthshine=False)
+        assert r.earthshine_dirs is None
+
+    def test_update_refreshes_it(self, tmp_path):
+        """Earthshine is a per-frame quantity: moving the Sun must change it.
+
+        Computing it once and reusing it across a night would be stale rather
+        than absent - a subtler version of the same bug.
+        """
+        r = self._renderer(tmp_path, scene=True, add_earthshine=True)
+        first = r.earthshine_patch_irradiance.copy()
+        r.update(self._geom(sun=(-0.6, 0.0, 0.8)))
+        assert not np.array_equal(first, r.earthshine_patch_irradiance)
+
+    def test_render_refuses_when_the_flag_is_set_after_construction(self, tmp_path):
+        """Setting the attribute directly bypasses both automatic paths, so
+        render must say so rather than drop the term."""
+        r = self._renderer(tmp_path, add_earthshine=False)
+        r.add_earthshine = True                     # the back door
+        with pytest.raises(RuntimeError, match='no earthshine has been computed'):
+            r.render()
+
+    def test_geometry_without_altitude_is_a_clear_error(self, tmp_path):
+        """A ViewGeometry carrying no altitude cannot give the Earth's angular
+        size. That must fail loudly at construction, not silently later."""
+        from satlight.raytracer import Renderer
+        from satlight.geometry import ViewGeometry
+        obj = tmp_path / 'plate.obj'
+        obj.write_text('o plate\nv -1 0 -1\nv 1 0 -1\nv 1 0 1\nv -1 0 1\nf 1 2 3 4\n')
+        g = ViewGeometry(np.array([0.3, 0.0, 0.95]), np.array([0.0, 0.0, 1.0]),
+                         distance_km=550.0)          # no altitude_km
+        with pytest.raises(TypeError, match='altitude'):
+            Renderer(str(obj), geometry=g, add_earthshine=True)

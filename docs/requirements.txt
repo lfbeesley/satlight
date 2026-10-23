@@ -1,3 +1,22 @@
-sphinx>=7.0
-myst-parser>=2.0
-sphinx-rtd-theme>=2.0
+# Docs build only. satlight itself is NOT pip-installed on the docs builder:
+# doing so would pull bpy==4.5.3 (Blender, several hundred MB), which the build
+# image has neither the time nor the disk for. conf.py puts the source tree on
+# sys.path and mocks bpy/mathutils instead, so autodoc still needs satlight's
+# *light* runtime dependencies in order to import the other modules.
+
+# --- Sphinx and extensions
+sphinx>=7.3
+myst-parser[linkify]>=2.0   # linkify extra: bare URLs become links (see myst_enable_extensions)
+furo>=2024.1.29
+sphinx-copybutton>=0.5
+sphinx-design>=0.5
+
+# --- satlight runtime deps that autodoc must be able to import.
+# bpy and mathutils are deliberately absent (mocked in conf.py).
+numpy
+astropy
+skyfield
+sgp4
+# Not mocked on purpose: it decorates a Renderer method, and a mocked decorator
+# would replace that method with a Mock and lose its signature.
+hide_warnings
