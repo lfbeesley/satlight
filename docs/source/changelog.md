@@ -70,12 +70,11 @@ first in each release.
 - **The CERES albedo map is removed**, along with `earth_albedo=None`. The
   Earth is a uniform albedo, `earth_albedo=0.3` by default; `None` now raises
   `ValueError`.
-- **Dependencies cut from 13 to 7.** `trimesh`, `tqdm`, `xarray` and `netCDF4`
+- **Dependencies cut from 13 to 8.** `trimesh`, `tqdm`, `xarray` and `netCDF4`
   were declared but never imported — left over from an unfinished earthshine
   path, and `netCDF4` alone pulled in binary HDF5 wheels for nothing. About
-  177 MB off a fresh install. `matplotlib` and `plotly` moved to the
-  `[preview]` extra, since only one method uses them and it imports them
-  lazily.
+  177 MB off a fresh install. `matplotlib` was never used and is gone;
+  `plotly` stays, for `preview_lvlh_views()`.
 - Licence declared as `GPL-3.0-or-later` in PEP 639 SPDX form. satlight
   imports `bpy` at module scope and `bpy` is GPL-3.0, which makes a
   distributed satlight a derivative work.

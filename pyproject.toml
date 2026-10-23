@@ -26,8 +26,9 @@ classifiers = [
 # Only what satlight/ actually imports. trimesh, tqdm, xarray and netCDF4 were
 # declared but never imported - they were left over from the GOME/LER earthshine
 # path that loadGOME.py was going to be - and netCDF4 drags in binary HDF5
-# wheels for nothing. matplotlib and plotly are visualisation only; see
-# [project.optional-dependencies] below.
+# wheels for nothing. plotly is only used by Renderer.preview_lvlh_views(),
+# which imports it inside the method so that `import satlight` stays fast; it is
+# still installed for everyone.
 dependencies = [
   "numpy",
   "astropy",
@@ -36,12 +37,8 @@ dependencies = [
   "bpy==4.5.3",
   "mathutils==3.3.0",
   "hide_warnings",
+  "plotly",
 ]
-
-[project.optional-dependencies]
-# Renderer.preview_lvlh_views() only. Imported lazily inside that method, so the
-# core package neither needs nor loads them.
-preview = ["plotly", "matplotlib"]
 
 [project.urls]
 Homepage = "https://github.com/lfbeesley/satlight"

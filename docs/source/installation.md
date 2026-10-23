@@ -43,6 +43,7 @@ The other dependencies are small:
 | `numpy` | everything numerical |
 | `skyfield`, `sgp4` | orbit propagation and observer geometry |
 | `astropy` | physical constants and units |
+| `plotly` | the 3-D preview, `preview_lvlh_views()` |
 | `hide_warnings` | silences Blender's mesh-import chatter - it get's angry when you don't want to use an .obj's associated .mtl's|
 
 ## First run downloads an ephemeris

@@ -15,7 +15,7 @@ Python 3.11, because satlight pins `bpy==4.5.3` (Blender as a Python module),
 which does the ray casting. The download is large; most of it is `bpy`.
 
 ```bash
-pip install "satlight[preview]"     # adds plotly for the 3-D preview
+pip install --pre satlight
 ```
 
 ## 2. How it fits together
@@ -180,7 +180,7 @@ applied to the imported pose, never compounded, so it is safe to call once per
 frame. Call it **before** `update()`, so the camera is placed around the new
 orientation.
 
-With `satlight[preview]` installed you can check the orientation first:
+You can check the orientation first:
 
 ```python
 r.preview_lvlh_views()        # opens an interactive 3-D view in your browser

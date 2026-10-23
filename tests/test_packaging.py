@@ -97,7 +97,7 @@ def test_import_has_no_global_side_effects_on_plotly():
     out = subprocess.run([sys.executable, '-c', code], capture_output=True,
                          text=True, cwd=ROOT)
     if out.returncode != 0:
-        pytest.skip('plotly not installed (it is an optional extra)')
+        pytest.skip('plotly not installed')
     assert out.stdout.strip().endswith('True'), \
         'importing satlight.raytracer changed plotly\'s default renderer'
 
