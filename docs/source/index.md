@@ -5,9 +5,7 @@
 satlight renders a spacecraft from the perspective of an observer. You give it an
 orbit, an observing site, a mesh and a set of surface reflectance models; it
 ray-traces the illuminated geometry and returns the irradiance arriving at the
-observer, in W/m². Nothing in the chain is fitted or empirical — the output is
-a radiometric prediction, which is what makes it useful for asking *why* a
-light curve looks the way it does.
+observer, in W/m².
 
 ```{code-block} python
 :caption: Example block
@@ -56,7 +54,7 @@ Hand `Geometry` into the `Renderer` to derive the radiance conditions.
 
 - **Self-shadowing**, one shadow ray per lit pixel.
 - **Multiple scattering** between components, useful for concave geometry such as rocket nozzles.
-- **Earthshine** as an extended source — a solid-angle-discretised Earth.
+- **Earthshine**, reflected from a uniform-albedo Earth.
 - **Eclipse and Earth occultation**
 - **Per-component attribution**: which part of the spacecraft produced the
   glint, by object name.
@@ -87,6 +85,7 @@ guide/index
 guide/geometry
 guide/materials
 guide/renderer
+guide/articulation
 guide/earthshine
 guide/photometry
 guide/performance

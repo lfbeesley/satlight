@@ -1,22 +1,15 @@
-# Tutorial: a satellite light curve with satlight
+# Tutorial
 
-Everything on this page is runnable. It builds one real light curve of a real
-pass, in six steps:
-
-**observer → satellite → time → materials → attitude → propagate**
+This page computes the brightness of a satellite over part of a pass.
 
 ## 1. Install
 
 ```bash
-pip install satlight
-```
-
-Python 3.11, because satlight pins `bpy==4.5.3` (Blender as a Python module),
-which does the ray casting. The download is large; most of it is `bpy`.
-
-```bash
 pip install --pre satlight
 ```
+
+satlight needs Python 3.11, because it depends on `bpy==4.5.3` (Blender as a
+Python module), which does the ray tracing.
 
 ## 2. Using satlight
 
@@ -30,16 +23,14 @@ There are two main classes:
   Self-shadowing is on by default; you can also add earthshine
   (`add_earthshine=True`) and multiple bounces (`n_bounce=2`).
 
-For more on multiple bounces, see
-[Multiple scattering](guide/renderer.md#multiple-scattering), and for what they
-cost to run, see {doc}`guide/performance`.
+For more on these options and what they cost to run, see {doc}`guide/renderer`
+and {doc}`guide/performance`.
 
 ```
-TLE → Geometry → sun & observer directions (LVLH) → Renderer → flux → magnitude
+TLE → Geometry → Sun and observer directions → Renderer → flux → magnitude
 ```
 
-You never pass those vectors by hand: you hand the `Geometry` to the
-`Renderer`, and it reads what it needs.
+You pass the `Geometry` to the `Renderer`, which reads the directions from it.
 
 ## 3. The observer
 
@@ -54,11 +45,11 @@ geom.create_observer(
 )
 ```
 
-That is Roque de los Muchachos on La Palma.
+This is Roque de los Muchachos on La Palma.
 
 ## 4. The satellite
 
-From a TLE, which is what you will usually have:
+From a TLE:
 
 ```python
 line1 = "1 25544U 98067A   24015.50000000  .00016717  00000-0  10270-3 0  9990"
@@ -66,7 +57,7 @@ line2 = "2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.49815174 10000"
 geom.create_satellite(line1, line2)
 ```
 
-Or from Keplerian elements, for a notional target such as a GEO slot:
+Or from Keplerian elements, for example a GEO slot:
 
 ```python
 import datetime
@@ -74,45 +65,36 @@ import datetime
 geom.create_satellite_from_elements(
     a_km=6371.0 + 35786.0,
     e=0.0, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,
-    nu_deg=100.0,                                     # sets the GEO longitude
+    nu_deg=100.0,
     epoch=datetime.datetime(2026, 8, 15, 22, 30,
-                            tzinfo=datetime.timezone.utc),   # MUST be tz-aware
+                            tzinfo=datetime.timezone.utc),
 )
 ```
 
-```{note}
-A naive `datetime` is read as UTC, so `tzinfo` is optional. Everything in
-`Geometry` is UTC.
-```
+All times are UTC.
 
 ## 5. The time
 
 ```python
-geom.set_time(2024, 1, 15, 19, 53, 0)              # separate arguments
-geom.set_time((2024, 1, 15, 19, 53, 0))            # or one tuple
-geom.set_time(datetime.datetime(2024, 1, 15, 19, 53))   # or a datetime
+geom.set_time(2024, 1, 15, 19, 53, 0)                    # separate arguments
+geom.set_time((2024, 1, 15, 19, 53, 0))                  # one tuple
+geom.set_time(datetime.datetime(2024, 1, 15, 19, 53))    # a datetime
 ```
 
-All three are equivalent. For many epochs at once, put a range in any one
-component:
+These are equivalent. A range in one component gives many epochs:
 
 ```python
 geom.set_time(2024, 1, 15, 19, 53, range(0, 60))   # 60 consecutive seconds
 ```
 
-Now the geometry can answer the questions that decide whether there is
-anything to see at all:
-
 ```python
-print(geom.prop_distance)        # slant range, km
+print(geom.prop_distance)        # range, km
 print(geom.is_visible())         # False if the Earth is in the way
-print(geom.eclipse_type())       # 1.0 sunlit, 0.0 in shadow, between in penumbra
+print(geom.eclipse_type())       # 1.0 sunlit, 0.0 in shadow, in between in penumbra
 ```
 
-### Finding a time worth rendering
-
-A satellite is only worth rendering when it is **above the horizon and sunlit**.
-`next_visibility` finds the passes:
+To find passes, use `next_visibility`. It checks elevation only, so use
+`eclipse_type()` to find the sunlit part:
 
 ```python
 passes = geom.next_visibility((2024, 1, 15, 18, 0, 0), N=24, i=20.0)
@@ -120,12 +102,9 @@ for year, month, day, hour, minute, seconds in passes:
     print(f"{year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d} UTC")
 ```
 
-It tests elevation only, so check `eclipse_type()` across the pass to find the
-sunlit part.
-
 ## 6. The model and its materials
 
-satlight ships no models. The one used here is in the repository's
+The model used here is in the repository's
 [`models/`](https://github.com/lfbeesley/satlight/tree/main/models) directory:
 
 ```python
@@ -134,42 +113,33 @@ model, _ = urllib.request.urlretrieve(
     'https://raw.githubusercontent.com/lfbeesley/satlight/main/models/reference/spacex_ai1.obj', 'spacex_ai1.obj')
 ```
 
-`spacex_ai1` is a 70 m orbital data-centre concept with twelve named
-components: `bus`, `boom_left`, `boom_right`, three `radiator_*` and six
-`solar_*`.
+It has twelve named components: `bus`, `boom_left`, `boom_right`, three
+`radiator_*` and six `solar_*`.
 
-Materials are assigned **by object name**, and this is the one rule worth
-learning:
-
-```{important}
-A `brdf` key matches if it appears **anywhere in the object's name**, compared
-case-insensitively. `'solar'` matches all six `solar_*` parts; `'radiator'`
-matches all three. `'default'` catches anything unmatched.
-```
+Materials are assigned by object name. A key matches if it appears anywhere in
+the name, case-insensitively, so `'solar'` matches all six `solar_*` parts.
+`'default'` is used for anything unmatched.
 
 ```python
 brdf = {
-    'solar':    ('lambertian', {'albedo': 0.08}),   # cells are dark
-    'radiator': ('lambertian', {'albedo': 0.60}),   # white thermal surfaces
+    'solar':    ('lambertian', {'albedo': 0.08}),
+    'radiator': ('lambertian', {'albedo': 0.60}),
     'boom':     ('lambertian', {'albedo': 0.20}),
     'bus':      ('lambertian', {'albedo': 0.30}),
     'default':  ('lambertian', {'albedo': 0.25}),
 }
 ```
 
-Available BRDFs: `lambertian`, `phong`, `blinn_phong`, `cook_torrance`,
-`oren_nayar`. You can also pass your own callable.
+See {doc}`guide/materials` for the other BRDF models.
 
 ```python
 from satlight.raytracer import Renderer
 
-r = Renderer(model, geometry=geom, resolution=(300, 300),
-             brdf=brdf, add_shadows=True)
+r = Renderer(model, geometry=geom, resolution=(300, 300), brdf=brdf)
 r.initialise_scene()
 ```
 
-To use your own mesh, pass its path instead. Use **metres**, and give each
-component a name you can match on.
+To use your own mesh, pass its path instead. The mesh should be in metres.
 
 ## 7. Orienting the spacecraft
 
@@ -179,25 +149,20 @@ import numpy as np
 r.set_attitude(euler_xyz=(0.0, 0.0, np.radians(30.0)))
 ```
 
-Angles are in radians about the LVLH axes — X along-track, Y orbit normal, Z
-zenith — so `(0, 0, 0)` is the model as imported. The rotation is always
-applied to the imported pose, never compounded, so it is safe to call once per
-frame. Call it **before** `update()`, so the camera is placed around the new
-orientation.
+Angles are in radians about the LVLH axes: X along-track, Y orbit normal, Z
+zenith. `(0, 0, 0)` is the model as imported. Call it before `update()`.
 
-You can check the orientation first:
+To check the orientation:
 
 ```python
-r.preview_lvlh_views()        # opens an interactive 3-D view in your browser
+r.preview_lvlh_views()        # interactive 3-D view in your browser
 ```
 
-## 8. Propagating the pass
+## 8. Rendering the pass
 
-Build a fresh `Geometry` per epoch, hand it to `update()`, and render:
+Build a `Geometry` for each epoch, pass it to `update()`, and render:
 
 ```python
-import datetime
-
 def geometry_at(when):
     g = Geometry()
     g.create_observer(observer_lat=28.7622, observer_lon=-17.8897,
@@ -212,7 +177,7 @@ t0 = datetime.datetime(2024, 1, 15, 19, 53, 0)
 for step in range(7):
     when = t0 + datetime.timedelta(seconds=30 * step)
     g = geometry_at(when)
-    r.update(g)                                   # before every render
+    r.update(g)
     flux = float(np.sum(r.render()))              # W/m² at the observer
     mag = -2.5 * np.log10(flux) - 18.915 if flux > 0 else None
     print(f"{when:%H:%M:%S}  {g.prop_distance:7,.0f} km  "
@@ -230,33 +195,13 @@ for step in range(7):
 19:56:00      542 km   30.6 deg  not observable
 ```
 
-The satellite brightens as the range closes and the phase angle falls, then
-drops out entirely when it enters eclipse. **A flux of exactly zero is not a
-bug**: `render()` multiplies by `eclipse_type() × is_visible()`, so an eclipsed
-or occulted satellite returns zero rather than a plausible wrong number.
+At 19:56 the satellite enters the Earth's shadow and the flux is zero.
 
 ## 9. Flux to magnitude
-
-`render()` is **broadband** — it integrates the full solar constant with no
-spectral response. Convert with the solar calibration:
 
 ```python
 m = -2.5 * np.log10(flux) - 18.915     # = m_sun + 2.5*log10(1361), m_sun = -26.75
 ```
 
-```{warning}
-`satlight.tools.AB_mag` is a true AB magnitude, valid only for **in-band**
-(500–600 nm) flux. Applied to `render()` output it reads about **2.2 mag too
-bright**.
-```
-
-## 10. Where to go next
-
-- `add_earthshine=True` adds light reflected from the Earth, as an extended
-  source. Computed automatically from the geometry.
-- `n_bounce=2` adds one inter-reflection between components — it matters for
-  concave geometry that sees itself.
-- `smooth_normals=True` interpolates shading normals across curved surfaces.
-- Swap `lambertian` for a specular BRDF to get glints. Note that the specular
-  lobe **adds** to the diffuse floor rather than being budgeted within a total,
-  so raising it raises the surface's overall reflectance too.
+Don't use `satlight.tools.AB_mag` on `render()` output; see
+{doc}`guide/photometry`.

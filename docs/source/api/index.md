@@ -1,16 +1,16 @@
 # API reference
 
-Generated from the docstrings in the source. Four modules, all re-exported at
-the package root — `from satlight import Geometry, Renderer` works.
+Generated from the docstrings. Everything is also available from the package
+root, e.g. `from satlight import Geometry, Renderer`.
 
 {doc}`geometry`
 : `Geometry`, `ViewGeometry`, and the Earth-radius constants.
 
 {doc}`raytracer`
-: `Renderer` — the ray caster.
+: `Renderer`.
 
 {doc}`brdf`
-: The seven BRDF models and the calling contract.
+: The BRDF models.
 
 {doc}`tools`
 : Photometric helpers.

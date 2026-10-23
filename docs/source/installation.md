@@ -4,10 +4,7 @@
 pip install --pre satlight
 ```
 
-satlight is published as a **pre-release**, so `pip` has to be told to accept
-one. A plain `pip install satlight` reports *"no matching distribution found"*,
-which looks like the package does not exist. Either `--pre` or an exact pin
-works:
+satlight is a pre-release, so `pip` needs `--pre`, or an exact version:
 
 ```bash
 pip install "satlight==0.1.0a3"
@@ -15,16 +12,8 @@ pip install "satlight==0.1.0a3"
 
 ## Python 3.11
 
-```{important}
-satlight requires `>=3.11,<3.12`. This is not conservatism — it is `bpy`.
-```
-
-The ray casting is done by Blender, imported as a Python module
-(`bpy==4.5.3`). `bpy` wheels are built against one specific CPython ABI, so
-the interpreter version is fixed by whichever Blender release you pin. On 3.12
-or 3.13 the install fails at dependency resolution rather than at runtime.
-
-A clean environment is the path of least resistance:
+satlight requires Python 3.11, because `bpy==4.5.3` (Blender as a Python
+module) is only built for 3.11. In a new environment:
 
 ```bash
 conda create -n satlight python=3.11
@@ -34,8 +23,8 @@ pip install --pre satlight
 
 ## The download is large
 
-Several hundred megabytes due to `bpy`. That is a whole Blender, including its renderer. 
-The other dependencies are small:
+Several hundred megabytes, almost all of it `bpy`. The other dependencies are
+small:
 
 | Package | Why |
 |---|---|
@@ -44,14 +33,13 @@ The other dependencies are small:
 | `skyfield`, `sgp4` | orbit propagation and observer geometry |
 | `astropy` | physical constants and units |
 | `plotly` | the 3-D preview, `preview_lvlh_views()` |
-| `hide_warnings` | silences Blender's mesh-import chatter - it get's angry when you don't want to use an .obj's associated .mtl's|
+| `hide_warnings` | silences Blender's mesh-import chatter - it gets angry when you don't want to use an .obj's associated .mtl files |
 
 ## First run downloads an ephemeris
 
 `Geometry()` needs a JPL planetary ephemeris for Sun and Moon positions. On
 first use, Skyfield fetches `de421.bsp` (about 16 MB) into `~/.satlight/` and
-reuses it from then on. The first `Geometry()` of your life therefore needs
-network access; nothing after it does.
+reuses it from then on, so the first run needs network access.
 
 ## Example code and models
 
@@ -65,6 +53,4 @@ package contains only the code.
 
 ## Licence
 
-GPL-3.0-or-later, and this is also not a free choice: satlight imports `bpy`
-at module scope, and `bpy` is GPL-3.0, which makes a distributed satlight a
-derivative work. Any redistribution, modified or not, must stay GPL-3.0.
+GPL-3.0-or-later, because satlight imports `bpy`, which is GPL-3.0.
