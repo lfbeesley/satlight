@@ -45,17 +45,6 @@ The other dependencies are small:
 | `astropy` | physical constants and units |
 | `hide_warnings` | silences Blender's mesh-import chatter - it get's angry when you don't want to use an .obj's associated .mtl's|
 
-
-### Optional extras
-
-The 3-D preview (`Renderer.preview_lvlh_views`) needs plotly and matplotlib.
-They are imported lazily, inside that one method, so the core package neither
-needs nor loads them:
-
-```bash
-pip install --pre "satlight[preview]"
-```
-
 ## First run downloads an ephemeris
 
 `Geometry()` needs a JPL planetary ephemeris for Sun and Moon positions. On
@@ -72,34 +61,6 @@ meshes, including the `spacex_ai1.obj` used in the {doc}`tutorial`, in
 [`models/`](https://github.com/lfbeesley/satlight/tree/main/models). The pip
 package contains only the code.
 
-```{warning}
-satlight does **not** ship a BRDF measurement database. Surface properties are
-supplied as analytic BRDF parameters — see {doc}`guide/materials`. Older
-documentation referred to a bundled MERL database; it was removed, and no part
-of the package reads it.
-```
-
-## Verifying the install
-
-```bash
-python -c "import satlight; print(satlight.__version__)"
-python -c "from satlight import Renderer, Geometry; print('ok')"
-```
-
-The second import is the real test: it is the one that loads `bpy`.
-
-## Development install
-
-```bash
-git clone https://github.com/lfbeesley/satlight.git
-cd satlight
-pip install -e .
-pip install pytest
-pytest                     # fast offline tier, no Blender, no network
-```
-
-See {doc}`contributing` for the test tiers — the default `pytest` run
-deliberately skips anything needing Blender or an ephemeris.
 
 ## Licence
 
