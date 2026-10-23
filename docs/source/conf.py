@@ -17,8 +17,8 @@ sys.path.insert(0, str(_ROOT))
 # -- Project information ------------------------------------------------------
 
 project = "satlight"
-author = "L. Beesley"
-copyright = "2026, L. Beesley"
+author = "Lily Beesley"
+copyright = "2026, Lily Beesley"
 
 # Single source of truth. The package reads its version from the installed
 # metadata, which is absent here (see above), so read the same value from
@@ -92,7 +92,7 @@ intersphinx_mapping = {
 html_theme = "furo"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
-html_title = f"satlight {release}"
+html_title = "SatLight: satellite light curve simulation in Python"
 
 # Dark pink, after the Pink Cat Boo VS Code theme. The same palette is given to
 # Furo's light AND dark modes, so the site looks the same whatever the
