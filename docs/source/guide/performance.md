@@ -42,7 +42,7 @@ question is whether the answer moves.
 ```python
 for n in (200, 300, 500, 700):
     r = Renderer(obj, geometry=geom, resolution=(n, n), brdf=brdf)
-    r.initialise_scene(); r.add_camera()
+    r.initialise_scene()
     print(n, float(np.sum(r.render())))
 ```
 
@@ -123,7 +123,7 @@ def render_slice(args):
                    when.hour, when.minute, when.second)
         if r is None:
             r = Renderer(obj_path, geometry=g, brdf=brdf)
-            r.initialise_scene(); r.add_camera()
+            r.initialise_scene()
         else:
             r.update(g)
         out.append(float(np.sum(r.render())))

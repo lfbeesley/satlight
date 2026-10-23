@@ -44,10 +44,6 @@ Work down this list, in order — the first three are by far the most common.
 : The renderer caches the camera placement and the earthshine term. Without an
   `update(geom)` it renders the geometry it was constructed with.
 
-**Did you call `add_camera()`?**
-: `initialise_scene()` imports the mesh; `add_camera()` creates and aims the
-  camera. Without the second, there is nothing to cast rays from.
-
 **Is `hit_count` zero?**
 : ```python
   r.render(); print(r.hit_count, r.shadow_count)
@@ -84,9 +80,8 @@ You used `tools.AB_mag` on broadband output. Use
 
 ### The body is rendered from nadir, not from the observer
 
-Fixed in current versions — `add_camera` used to hardcode the $-Z$ axis. If you
-see this, you are on an old version: upgrade, or make sure you are not calling
-an internal placement method directly.
+Older versions pointed the camera along $-Z$ regardless of the geometry.
+Upgrade, and make sure you are not calling an internal camera method directly.
 
 ### Light curve structure that moves with attitude
 

@@ -42,7 +42,6 @@ for phase_deg in range(0, 90, 10):
     r = Renderer("plate.obj", geometry=geom, resolution=(256, 256),
                  brdf=("lambertian", {"albedo": 0.3}))
     r.initialise_scene()
-    r.add_camera()
     r.update(geom)                              # call before every render
     flux = float(r.render().sum())              # W/m² at the observer
     print(f"phase {phase_deg:3d} deg   flux {flux:.3e} W/m²")
@@ -94,7 +93,6 @@ brdf = {
 
 r = Renderer("your_model.obj", geometry=geom, resolution=(300, 300), brdf=brdf)
 r.initialise_scene()
-r.add_camera()
 r.update(geom)                              # before every render
 flux = float(np.sum(r.render()))            # W/m² at the observer
 ```

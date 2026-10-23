@@ -166,7 +166,6 @@ from satlight.raytracer import Renderer
 r = Renderer(model, geometry=geom, resolution=(300, 300),
              brdf=brdf, add_shadows=True)
 r.initialise_scene()
-r.add_camera()
 ```
 
 To use your own mesh, pass its path instead. Use **metres**, and give each

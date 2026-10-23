@@ -40,14 +40,13 @@ kilometres, and the conversion happens in exactly one place
 
 ```python
 r = Renderer(obj_path, geometry=geom, brdf=brdf)
-r.initialise_scene()          # import the mesh, centre it, repair normals
-r.add_camera()                # create the ortho camera, aim it, fit the frame
+r.initialise_scene()          # import the mesh, centre it, create the camera
 r.set_attitude(euler_xyz=...) # optional; before update()
 r.update(geom)                # re-read the geometry; re-fit camera & earthshine
 image = r.render()            # the ray cast
 ```
 
-`initialise_scene` and `add_camera` are called once. `update` is called **once
+`initialise_scene` is called once. `update` is called **once
 per epoch**, before every render.
 
 ```{warning}
@@ -80,14 +79,6 @@ default.
 Frame width and camera standoff are two unrelated quantities: width comes from
 the projected extent, standoff from the along-view extent. `ortho_margin=1.06`
 puts a 6% border around the fitted frame.
-
-```{note}
-`add_camera` once hardcoded the $-Z$ axis, so
-`initialise_scene → add_camera → render` silently rendered from **nadir**
-whatever geometry it was given — and for an oblique observer that meant looking
-into the back of the model and returning zero flux. Both paths now go through
-one `_place_camera`.
-```
 
 ## Attitude
 

@@ -24,7 +24,7 @@ geom.create_satellite(line1, line2)                     # a TLE
 geom.set_time(2024, 1, 15, 19, 53, 0)
 
 r = Renderer(model, geometry=geom, brdf={'default': ('lambertian', {'albedo': 0.25})})
-r.initialise_scene(); r.add_camera()
+r.initialise_scene()
 flux = float(np.sum(r.render()))                        # W/m²
 print(-2.5 * np.log10(flux) - 18.915)                   # apparent magnitude
 ```
