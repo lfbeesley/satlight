@@ -1,22 +1,21 @@
 # Moving components
 
-Solar arrays that track the Sun, an antenna that is repointed partway through a
-pass: satlight renders whatever pose the spacecraft is in, but it does not move
-individual parts for you. You do that with Blender's own API, `bpy`. This page
-explains how the two fit together, and gives the recipe.
+Most satellites have moving parts, such as Sun-tracking solar arrays or
+steerable antennas, and these need to be modelled. satlight has no function
+for moving parts, you need to move them with Blender's own API, `bpy`. This page shows
+how.
 
-## Who changes what
+## How `bpy` and satlight interact
 
-satlight keeps no copy of the spacecraft. After `initialise_scene()` the mesh
-lives in Blender's scene, and every `render()` casts rays at that scene **as it
-is at that moment**. Moving a part and placing the Sun and camera are two
-separate jobs that never touch each other:
+After `initialise_scene()` the mesh lives in Blender's scene, and every
+`render()` casts rays at that scene **as it is at that moment**. The figure
+below shows how `bpy` and satlight divide the work:
 
 ```{figure} figures/pose_flow.*
-:alt: Two inputs feed one shared Blender scene. On the left, you move parts by
-  assigning o.matrix_world through bpy. On the right, renderer.update(geom)
-  sets the Sun, observer and camera. renderer.render() then casts rays at the
-  scene as it is now and returns the flux at the observer.
+:alt: Two inputs feed one Blender scene. Left: you move parts by
+  assigning o.matrix_world through bpy. Right: renderer.update(geom)
+  sets the Sun, observer and camera for the next frame. renderer.render()
+  then casts rays at the scene as it is now and returns the flux at the observer.
 :width: 85%
 
 `bpy` moves the spacecraft, `update()` moves the Sun and the camera, and
@@ -25,8 +24,8 @@ separate jobs that never touch each other:
 
 Call | Effect
 --- | ---
-`o.matrix_world = ...` | Moves the part in Blender's scene. This, and only this, changes the pose.
-`bpy.context.view_layer.update()` | Makes Blender apply the new matrices so the next ray cast sees them. `render()` also calls it, so this is a safety step.
+`o.matrix_world = ...` | Moves the part in Blender's scene. This changes the pose.
+`bpy.context.view_layer.update()` | Makes Blender apply the new matrices so the next ray cast sees them. `render()` also calls it.
 `renderer.update(geom)` | Sets the Sun direction, observer direction and range for this epoch, and places the **camera**. It does not move any part.
 `renderer.render()` | Casts rays through the camera at the parts where they now are, and returns the per-pixel irradiance.
 
@@ -35,7 +34,7 @@ Call | Effect
 ```python
 pose(...)                 # 1. move the parts       (bpy)
 renderer.update(geom)     # 2. Sun, observer, camera (satlight)
-flux = renderer.render()  # 3. take the picture
+flux = renderer.render()  # 3. calculate the irradiance
 ```
 
 ```{important}
@@ -44,7 +43,7 @@ the parts are at that moment, so a solar array swung out afterwards can land
 outside the image.
 ```
 
-## Each component is its own object
+## Moving individual components
 
 The OBJ importer splits the file on its `o <name>` lines, so every named
 component is a separate Blender object:
