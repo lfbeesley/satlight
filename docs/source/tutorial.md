@@ -18,15 +18,21 @@ which does the ray casting. The download is large; most of it is `bpy`.
 pip install --pre satlight
 ```
 
-## 2. How it fits together
+## 2. Using satlight
 
-Two halves, and they meet at three vectors.
+There are two main classes:
 
-- **`Geometry`** — the orbital mechanics. Given an observer and a satellite, it
-  works out where the Sun and the observer are *as seen from the spacecraft*,
-  whether the satellite is sunlit, and whether the Earth is in the way.
-- **`Renderer`** — the optics. It ray-traces the model under that illumination
-  and returns the irradiance at the observer, in W/m².
+- **`Geometry`** works out where the Sun and the observer are as seen from
+  the spacecraft (the incident and outgoing vectors), whether the satellite is
+  sunlit, and whether the Earth is in the way.
+- **`Renderer`** simulates the brightness. It ray-traces the model under that
+  illumination and returns the irradiance at the observer, in W/m².
+  Self-shadowing is on by default; you can also add earthshine
+  (`add_earthshine=True`) and multiple bounces (`n_bounce=2`).
+
+For more on multiple bounces, see
+[Multiple scattering](guide/renderer.md#multiple-scattering), and for what they
+cost to run, see {doc}`guide/performance`.
 
 ```
 TLE → Geometry → sun & observer directions (LVLH) → Renderer → flux → magnitude
