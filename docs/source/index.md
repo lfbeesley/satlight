@@ -1,6 +1,7 @@
 ---
 myst:
   html_meta:
+    google-site-verification: "qQxH-ACJ3LT9lxAESyEvigwgVvkfe3LBb6d5K_0_8B4"
     description: "SatLight (satlight) simulates optical light curves of satellites and other resident space objects in Python, by ray-tracing a spacecraft model with Blender. By Lily Beesley, University of Birmingham; described in Beesley et al. (2026), AMOS."
     keywords: "satlight, SatLight, satellite light curve, light curve simulation, resident space objects, space domain awareness, BRDF, ray tracing, Blender, Beesley"
 ---
