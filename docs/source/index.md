@@ -47,36 +47,27 @@ print(-2.5 * np.log10(flux) - 18.915)                   # apparent magnitude
   spacecraft*; is the spacecraft sunlit; is the Earth in the way.
 
 {doc}`Renderer <guide/renderer>`
-: The optics. Ray-cast the mesh under that illumination, evaluate a BRDF per
+: The brightness modelling. Ray-cast the mesh under that illumination, evaluate a BRDF per
   lit pixel, and integrate to a flux.
 
-You never pass those vectors by hand. You hand the `Geometry` to the
-`Renderer` and it reads what it needs — which is also the reason the
-kilometres-to-metres conversion lives in exactly one place.
+Hand `Geometry` into the `Renderer` to derive the radiance conditions.
 
-## What it does, concretely
+## What it does
 
 - **Self-shadowing**, one shadow ray per lit pixel.
-- **Multiple scattering** between components, for concave geometry that sees
-  itself.
-- **Earthshine** as an extended source — a solid-angle-discretised Earth cap,
-  not a single ray.
-- **Eclipse and occultation** handled as independent conditions, so a
-  satellite that has set returns zero rather than a plausible wrong number.
+- **Multiple scattering** between components, useful for concave geometry such as rocket nozzles.
+- **Earthshine** as an extended source — a solid-angle-discretised Earth.
+- **Eclipse and Earth occultation**
 - **Per-component attribution**: which part of the spacecraft produced the
   glint, by object name.
-- Seven BRDF models, or any callable you supply.
+- Seven standard BRDF models, or any callable you supply.
 
 ## What it does not do
-
 - **It is broadband.** `render()` integrates the full solar constant with no
   spectral response. See {doc}`guide/photometry` before you compare to a
   filtered measurement.
 - **It is not an attitude propagator.** You supply the orientation per epoch;
   satlight will not tumble the body for you.
-- **It has no atmosphere.** No extinction, no seeing, no sky background.
-- **It is single-process.** See {doc}`guide/performance` for the cost model and
-  how to parallelise over epochs.
 
 ```{toctree}
 :hidden:
