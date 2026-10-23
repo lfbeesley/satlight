@@ -90,14 +90,49 @@ intersphinx_mapping = {
 # -- HTML output --------------------------------------------------------------
 
 html_theme = "furo"
-html_static_path = []          # no custom CSS/JS; add "_static" here if some is ever needed
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 html_title = f"satlight {release}"
+
+# Dark pink, after the Pink Cat Boo VS Code theme. The same palette is given to
+# Furo's light AND dark modes, so the site looks the same whatever the
+# visitor's system setting; custom.css hides the now-pointless mode toggle.
+_PINK_CAT_BOO = {
+    "color-background-primary": "#202330",
+    "color-background-secondary": "#2d2f42",
+    "color-background-hover": "#3a3d55",
+    "color-background-hover--transparent": "#3a3d5500",
+    "color-background-border": "#3a3d55",
+    "color-background-item": "#3a3d55",
+    "color-foreground-primary": "#FFF0F5",
+    "color-foreground-secondary": "#C5C8C6",
+    "color-foreground-muted": "#9a9cb0",
+    "color-foreground-border": "#6b6e88",
+    "color-brand-primary": "#fe7c8e",
+    "color-brand-content": "#fe7c8e",
+    "color-brand-visited": "#DCBFF2",
+    "color-highlighted-background": "#472541",
+    "color-highlight-on-target": "#472541",
+    "color-inline-code-background": "#2d2f42",
+    "color-admonition-background": "#2d2f42",
+    "color-table-header-background": "#2d2f42",
+    "color-table-border": "#3a3d55",
+    "color-card-background": "#2d2f42",
+    "color-card-border": "#3a3d55",
+    "color-api-name": "#fe7c8e",
+    "color-api-pre-name": "#f3b4bf",
+    "color-problematic": "#FA508C",
+}
 html_theme_options = {
     "source_repository": "https://github.com/lfbeesley/satlight/",
     "source_branch": "main",
     "source_directory": "docs/source/",
     "navigation_with_keys": True,
+    "light_css_variables": _PINK_CAT_BOO,
+    "dark_css_variables": _PINK_CAT_BOO,
 }
+pygments_style = "dracula"          # dark code blocks in both modes
+pygments_dark_style = "dracula"
 html_last_updated_fmt = "%Y-%m-%d"
 
 # Nitpicky mode would flag every unresolved cross-reference. Worth having on,

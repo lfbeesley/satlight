@@ -1,0 +1,5 @@
+/* Light and dark modes share one palette (conf.py), so the toggle does nothing. */
+.theme-toggle-container { display: none; }
+
+/* Furo picks the code background from the Pygments style; keep it on-palette. */
+.highlight, .highlight pre { background: #191b26 !important; }
