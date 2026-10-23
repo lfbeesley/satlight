@@ -63,15 +63,14 @@ first use, Skyfield fetches `de421.bsp` (about 16 MB) into `~/.satlight/` and
 reuses it from then on. The first `Geometry()` of your life therefore needs
 network access; nothing after it does.
 
-## Bundled data
+## Example code and models
 
-One example model ships with the package, so the {doc}`tutorial` runs as-is
-with nothing to download:
-
-The package itself is the code only: no models and no data files. Example
-meshes, including the `spacex_ai1.obj` used in the {doc}`tutorial`, are in the
-repository's [`models/`](https://github.com/lfbeesley/satlight/tree/main/models)
-directory.
+Example code and `.obj` files can be found in the
+[satlight repository](https://github.com/lfbeesley/satlight): scripts in
+[`examples/`](https://github.com/lfbeesley/satlight/tree/main/examples), and
+meshes, including the `spacex_ai1.obj` used in the {doc}`tutorial`, in
+[`models/`](https://github.com/lfbeesley/satlight/tree/main/models). The pip
+package contains only the code.
 
 ```{warning}
 satlight does **not** ship a BRDF measurement database. Surface properties are
