@@ -10,9 +10,10 @@ myst:
 **Physically-based light curves for resident space objects.**
 
 satlight renders a spacecraft from the perspective of an observer. You give it an
-orbit, an observing site, a mesh and a set of surface reflectance models; it
-ray-traces the illuminated geometry and returns the irradiance arriving at the
-observer, in W/m².
+orbit (TLE, Keplerian Elements, or ingoing and outgoing vectors), an observing site, 
+a CAD model (.obj format) and a set of surface BRDS; and it
+ray-traces the illuminated geometry and returns the irradiance frame arriving at the
+observer, in W/m²/pixel, which can be integrated to apparent magnitude.
 
 ```{code-block} python
 :caption: Example block
