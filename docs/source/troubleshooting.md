@@ -25,7 +25,7 @@ not in the parent process (see {doc}`guide/performance`). Otherwise, reinstall:
 
 ### The flux is zero
 
-Check, in order:
+Check:
 
 1. Is the satellite observable?
    `print(geom.eclipse_type(), geom.is_visible())`. An eclipsed or occulted
