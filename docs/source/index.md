@@ -48,11 +48,10 @@ print(-2.5 * np.log10(flux) - 18.915)                   # apparent magnitude
 ```
 
 {doc}`Geometry <guide/geometry>`
-: The orbital mechanics. Where are the Sun and the observer *as seen from the
-  spacecraft*; is the spacecraft sunlit; is the Earth in the way.
+: This module calculates the Sun, the observer, and the spacecraft geometry in LVLH frame; if the spacecraft sunlit; is the Earth in the way.
 
 {doc}`Renderer <guide/renderer>`
-: The brightness modelling. Ray-cast the mesh under that illumination, evaluate a BRDF per
+: Ray-cast the mesh under that illumination, evaluate a BRDF per
   lit pixel, and integrate to a flux.
 
 Hand `Geometry` into the `Renderer` to derive the radiance conditions.
