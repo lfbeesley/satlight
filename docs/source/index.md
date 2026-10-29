@@ -20,6 +20,9 @@ import numpy as np, urllib.request
 model, _ = urllib.request.urlretrieve(
     'https://raw.githubusercontent.com/lfbeesley/satlight/main/models/reference/spacex_ai1.obj', 'spacex_ai1.obj')
 
+line1 = '1 25544U 98067A   24015.50000000  .00016717  00000-0  10270-3 0  9990'
+line2 = '2 25544  51.6416 247.4627 0006703 130.5360 325.0288 15.49815174 10000'
+
 geom = Geometry()
 geom.create_observer(observer_lat=28.7622, observer_lon=-17.8897, observer_alt_m=2396)
 geom.create_satellite(line1, line2)                     # a TLE
@@ -28,7 +31,8 @@ geom.set_time(2024, 1, 15, 19, 53, 0)
 r = Renderer(model, geometry=geom, brdf={'default': ('lambertian', {'albedo': 0.25})})
 r.initialise_scene()
 flux = float(np.sum(r.render()))                        # W/m²
-print(-2.5 * np.log10(flux) - 18.915)                   # apparent magnitude
+print(-2.5 * np.log10(flux) - 18.915)
+
 ```
 
 ## How it works
